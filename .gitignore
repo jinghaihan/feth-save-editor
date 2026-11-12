@@ -10,3 +10,6 @@ dist/
 /gui/obj/
 /test/bin/
 /test/obj/
+/tools/export-legacy/bin/
+/tools/export-legacy/obj/
+/build/
