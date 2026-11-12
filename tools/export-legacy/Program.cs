@@ -15,6 +15,7 @@ void Write(string name, object value) {
     using var gzip = new GZipStream(file, CompressionLevel.SmallestSize);
     JsonSerializer.Serialize(gzip, value, json);
 }
+Write("ui-zh_hans", JsonSerializer.Deserialize<Dictionary<string,string>>(File.ReadAllText("gui/Localization/zh_hans.json"))!);
 var schemas = new Dictionary<string, object>();
 void Schema(Type type) {
     if (schemas.ContainsKey(type.Name)) return;
@@ -60,7 +61,18 @@ foreach (var language in Enum.GetValues<enmLanguage>()) {
     catalog["system-flags"] = Enumerable.Range(0,SystemSaveData_V7.COUNT_FLAGS).Select(id => new { id, name=id>=8 && id<108 ? Safe(() => Database.GetString(12823+id-8)) : "" }).ToArray();
     var journal = new NgPlusJournal(new byte[0x2000],0);
     catalog["records"] = Enumerable.Range(0,45).Select(id=>new {id,name=journal.GetCharacterName(id)}).ToArray();
-    Write(language.ToString(), new { catalog, details, strings });
+    var names = new Dictionary<string, Dictionary<int,string>> {
+        ["characters"] = Enumerable.Range(0,db.CharacterEntries.Count).ToDictionary(id=>id,id=>Safe(()=>Database.GetUnitName(id))),
+        ["items"] = db.ItemEntries.Keys.ToDictionary(id=>id,id=>Safe(()=>Database.GetItemName(id))),
+        ["abilities"] = Enumerable.Range(0,256).ToDictionary(id=>id,id=>Safe(()=>Database.GetAbilityName(id,false))),
+        ["unit-classes"] = Enumerable.Range(0,64).ToDictionary(id=>id,id=>Safe(()=>Database.GetUnitClassName(id)))
+    };
+    foreach(var type in new[]{typeof(enmCharacterFlags),typeof(enmCharacterClassFlags)})
+        names[type.Name] = Enumerable.Range(0,type==typeof(enmCharacterFlags)?32:8).ToDictionary(id=>id,id=>{
+            var entry=Enum.GetName(type,Enum.ToObject(type,1u<<id));
+            return entry==null ? $"Bit {id}" : type.GetField(entry)?.GetCustomAttribute<System.ComponentModel.DescriptionAttribute>()?.Description ?? entry;
+        });
+    Write(language.ToString(), new { catalog, details, strings, names });
 }
 Database.Init(enmLanguage.en_u);
 var binary = Database.BinaryDatabase;

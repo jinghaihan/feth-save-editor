@@ -31,9 +31,10 @@ type Detail struct {
 	Details string `json:"details"`
 }
 type Database struct {
-	Catalog map[string][]Entry  `json:"catalog"`
-	Details map[string][]Detail `json:"details"`
-	Strings map[string]string   `json:"strings"`
+	Names   map[string]map[int]string `json:"names"`
+	Catalog map[string][]Entry        `json:"catalog"`
+	Details map[string][]Detail       `json:"details"`
+	Strings map[string]string         `json:"strings"`
 }
 type UnitRule struct {
 	ID, Record, MaximumHP int
@@ -90,6 +91,12 @@ func Load(language string) (*Database, error) {
 	return value.(*Database), nil
 }
 func (d *Database) Name(kind string, id int) string {
+	if kind == "battalions" && id == 200 {
+		return "----"
+	}
+	if value, ok := d.Names[kind][id]; ok {
+		return value
+	}
 	for _, v := range d.Catalog[kind] {
 		if v.ID == id {
 			return v.Name

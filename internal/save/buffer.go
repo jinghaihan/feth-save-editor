@@ -147,7 +147,7 @@ func EncodeName(name string) []byte {
 		}
 		n += utf8.EncodeRune(out[n:], r)
 	}
-	copy(out[n:], []byte{0x1b, 0x4e, 0x31})
+	copy(out[n:], []byte{0x1b, 0x4e, 0x30})
 	return out
 }
 func (s *Buffer) ExportCharacter(slot int) ([]byte, error) {
