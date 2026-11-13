@@ -45,18 +45,16 @@ type App struct {
 	tabs                   map[string]*int
 	zh                     map[string]string
 	preferencesPath        string
-	split                  float32
 	revision               int
 	confirm                bool
 	confirmLabel           string
 	confirmAction          func()
-	allowClose             bool
-	fillAmount             float64
+	pendingInput           func()
 }
 
 func New() *App {
 	db, _ := catalog.Load("en_u")
-	a := &App{DB: db, Page: "Main", Language: "en_u", tables: map[string]*tableState{}, tabs: map[string]*int{}, split: 310, fillAmount: 99}
+	a := &App{DB: db, Page: "Main", Language: "en_u", tables: map[string]*tableState{}, tabs: map[string]*int{}}
 	catalog.Decode("ui-zh_hans", &a.zh)
 	return a
 }
@@ -126,15 +124,15 @@ func (a *App) apply(op save.Operation) {
 func (a *App) Set(path string, value int64) {
 	a.apply(save.Operation{"op": "set", "path": path, "value": value})
 }
-func (a *App) dirty() bool {
-	return a.Save != nil && a.Save.ChangedBytes() > 0 || a.System != nil && !bytes.Equal(a.systemBaseline, a.System.FinishedBytes())
-}
 func (a *App) Load(path string) error {
 	s, err := save.Open(path)
 	if err != nil {
 		return err
 	}
 	systemPath := filepath.Join(filepath.Dir(path), "system")
+	if a.System != nil && !bytes.Equal(a.systemBaseline, a.System.FinishedBytes()) && !strings.EqualFold(a.SystemPath, systemPath) {
+		return fmt.Errorf("save the edited system copy before loading another system save")
+	}
 	var system *save.System
 	if _, err := os.Stat(systemPath); err == nil {
 		system, err = save.OpenSystem(systemPath)
@@ -143,6 +141,7 @@ func (a *App) Load(path string) error {
 		}
 	}
 	a.Save, a.Path, a.System, a.SystemPath = s, path, system, systemPath
+	a.pendingInput = nil
 	a.systemBaseline = nil
 	if system != nil {
 		a.systemBaseline = system.FinishedBytes()
@@ -163,6 +162,7 @@ func (a *App) post(fn func()) {
 	}
 }
 func (a *App) open() {
+	a.flushInput()
 	go func() {
 		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: a.win, Title: a.T("Open Save...")})
 		if err != nil {
@@ -173,15 +173,8 @@ func (a *App) open() {
 			return
 		}
 		a.post(func() {
-			load := func() {
-				if err := a.Load(paths[0]); err != nil {
-					a.Status = err.Error()
-				}
-			}
-			if a.dirty() {
-				a.ask("Discard unsaved changes?", load)
-			} else {
-				load()
+			if err := a.Load(paths[0]); err != nil {
+				a.Status = err.Error()
 			}
 		})
 	}()
@@ -190,6 +183,7 @@ func (a *App) saveCopy() {
 	if a.Save == nil {
 		return
 	}
+	a.flushInput()
 	go func() {
 		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: a.win, Title: a.T("Save Copy..."), Directory: true})
 		if err != nil {
@@ -208,17 +202,12 @@ func (a *App) saveCopy() {
 					a.Status = a.T("Saved")
 				}
 			}
-			_, err := os.Stat(filepath.Join(dir, filepath.Base(a.Path)))
-			_, systemErr := os.Stat(filepath.Join(dir, "system"))
-			if err == nil || a.System != nil && systemErr == nil {
-				a.ask("Replace existing files?", write)
-			} else {
-				write()
-			}
+			write()
 		})
 	}()
 }
 func (a *App) SaveCopy(dir string) error {
+	a.flushInput()
 	if a.Save == nil {
 		return fmt.Errorf("no save is open")
 	}
@@ -246,6 +235,12 @@ func (a *App) SaveCopy(dir string) error {
 		}
 	}
 	return nil
+}
+func (a *App) flushInput() {
+	if pending := a.pendingInput; pending != nil {
+		a.pendingInput = nil
+		pending()
+	}
 }
 func trueIfExists(path string) bool { _, err := os.Stat(path); return err == nil }
 func (a *App) ask(label string, fn func()) {
@@ -283,12 +278,21 @@ func (a *App) menu() {
 		{Label: a.T("File"), Submenu: []*mygo.MenuItem{
 			{Label: a.T("Open Save..."), Accelerator: "CmdOrCtrl+O", Click: func(*mygo.MenuItem, *mygo.Window) { a.open() }},
 			{Label: a.T("Save Copy..."), Accelerator: "CmdOrCtrl+Shift+S", Click: func(*mygo.MenuItem, *mygo.Window) { a.saveCopy() }},
+			{Label: a.T("Exit"), Accelerator: "CmdOrCtrl+Q", Click: func(*mygo.MenuItem, *mygo.Window) { mygo.App.Quit() }},
 		}},
+		{Label: a.T("Language"), Submenu: a.languageMenu()},
 		{Role: mygo.RoleEditMenu},
 		{Label: a.T("Help"), Submenu: []*mygo.MenuItem{{Label: a.T("About"), Click: func(*mygo.MenuItem, *mygo.Window) {
-			go mygo.Dialog.Message(mygo.MessageOptions{Parent: a.win, Message: "FETH Save Editor " + Version, Detail: "Based on fe3h-editor by imouto1994. Game data and v1.2.0 support by Falo. UI built with MyGo. Icons: Lucide via Iconify.", Buttons: []string{"OK"}})
+			go mygo.Dialog.Message(mygo.MessageOptions{Parent: a.win, Message: "FETH Save Editor " + Version, Detail: "Based on fe3h-editor by imouto1994. Game data and v1.2.0 support by Falo. UI built with MyGo.", Buttons: []string{"OK"}})
 		}}}},
 	}))
+}
+func (a *App) languageMenu() []*mygo.MenuItem {
+	items := make([]*mygo.MenuItem, len(languageCodes))
+	for i, code := range languageCodes {
+		items[i] = &mygo.MenuItem{Label: languageNames[i], Click: func(*mygo.MenuItem, *mygo.Window) { a.SetLanguage(code) }}
+	}
+	return items
 }
 func Run(path string) error {
 	a := New()
@@ -299,7 +303,7 @@ func Run(path string) error {
 		}
 	}
 	mygo.App.WhenReady(func() {
-		a.win = mygo.NewWindow(mygo.WindowOptions{Title: "FETH Save Editor", Width: 1200, Height: 800, MinWidth: 800, MinHeight: 560, StateKey: "main", Content: ui.View(a.View)})
+		a.win = mygo.NewWindow(mygo.WindowOptions{Title: "FETH Save Editor", Width: 1120, Height: 780, MinWidth: 860, MinHeight: 600, StateKey: "main", Content: ui.View(a.View)})
 		a.SetLanguage(a.Language)
 		a.menu()
 	})

@@ -36,6 +36,13 @@ func fixture(t *testing.T) *App {
 	if err := os.WriteFile(path, b, 0600); err != nil {
 		t.Fatal(err)
 	}
+	system := make([]byte, 0x1204)
+	binary.LittleEndian.PutUint32(system[4:], 7)
+	binary.LittleEndian.PutUint32(system[8:], uint32(len(system)))
+	binary.LittleEndian.PutUint32(system, save.Checksum(system))
+	if err := os.WriteFile(filepath.Join(filepath.Dir(path), "system"), system, 0600); err != nil {
+		t.Fatal(err)
+	}
 	a := New()
 	if err := a.Load(path); err != nil {
 		t.Fatal(err)
@@ -64,7 +71,7 @@ func TestAllPagesAndDefaultControls(t *testing.T) {
 				}
 			}
 		}
-		tester.SetSize(800, 560)
+		tester.SetSize(860, 600)
 		for _, page := range pages {
 			a.Page = page
 			tester.Frame()
@@ -75,7 +82,7 @@ func TestAllPagesAndDefaultControls(t *testing.T) {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			t.Fatal(err)
 		}
-		a.SetLanguage("en_u")
+		a.SetLanguage("zh_hans")
 		for _, page := range []string{"Main", "Items", "Roster", "Battalions", "Support", "NG+ Roster"} {
 			a.Page = page
 			*a.tab("roster") = 0
@@ -92,17 +99,145 @@ func TestAllPagesAndDefaultControls(t *testing.T) {
 		}
 	}
 }
-func TestNativeNumberInputEditsSave(t *testing.T) {
+func TestNumberEntryCommitsOnBlur(t *testing.T) {
 	a := fixture(t)
 	tt := ui.NewTester(a.View, 1200, 800)
-	if err := tt.Click("Money"); err != nil {
+	if err := tt.Click("Money:"); err != nil {
 		t.Fatal(err)
 	}
 	tt.Key(ui.Cmd, ui.KeyA)
 	tt.Type("64000")
+	if got := a.number("Player.Money"); got != 0 {
+		t.Fatalf("input committed while typing: %d", got)
+	}
 	tt.Key(0, ui.KeyTab)
 	if got := a.number("Player.Money"); got != 64000 {
 		t.Fatalf("Money=%d status=%q", got, a.Status)
+	}
+}
+
+func TestNavigationAndLegacyColumns(t *testing.T) {
+	a := fixture(t)
+	tt := ui.NewTester(a.View, 1200, 800)
+	tab, ok := tt.AccessByRole(ui.RoleTab, "Roster")
+	if !ok || tab.Bounds.Y > 40 {
+		t.Fatalf("navigation is not at the top: %+v", tab)
+	}
+	left, _ := tt.Access("Player")
+	right, _ := tt.Access("Game Values")
+	if left.Bounds.X >= right.Bounds.X || left.Bounds.Y != right.Bounds.Y {
+		t.Fatal("overview no longer has its original two columns")
+	}
+	for _, node := range tt.AccessAll() {
+		if node.Name == "Increase" || node.Name == "Decrease" {
+			t.Fatal("plain overview fields were replaced by steppers")
+		}
+	}
+	if err := tt.Click("Roster"); err != nil {
+		t.Fatal(err)
+	}
+	stats, _ := tt.Access("Stats")
+	equipped, _ := tt.Access("Equipped Abilities")
+	if equipped.Bounds.X <= stats.Bounds.X || stats.Bounds.Y != equipped.Bounds.Y {
+		t.Fatal("equipment was moved out of the character's main page")
+	}
+	a.Page = "Items"
+	tt.Frame()
+	previous := float32(-1)
+	for _, name := range []string{"Item List", "Item Editor", "Misc Items", "Gift Items"} {
+		node, ok := tt.Access(name)
+		if !ok || node.Bounds.X <= previous {
+			t.Fatalf("inventory columns changed: %s %+v", name, node)
+		}
+		previous = node.Bounds.X
+	}
+}
+
+func TestEditingSurvivesSwitchingPage(t *testing.T) {
+	a := fixture(t)
+	tt := ui.NewTester(a.View, 1200, 800)
+	if err := tt.Click("Money:"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Key(ui.Cmd, ui.KeyA)
+	tt.Type("73100")
+	if err := tt.Click("Roster"); err != nil {
+		t.Fatal(err)
+	}
+	if got := a.number("Player.Money"); got != 73100 {
+		t.Fatalf("switching pages lost pending input: %d", got)
+	}
+}
+
+func TestStagedInventoryAndSupportEdits(t *testing.T) {
+	a := fixture(t)
+	a.Set("Items[0].Id", 1)
+	a.Set("Items[0].Amount", 1)
+	a.Page = "Items"
+	tt := ui.NewTester(a.View, 1200, 800)
+	if err := tt.Click("Amount"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Key(ui.Cmd, ui.KeyA)
+	tt.Type("7")
+	tt.Key(0, ui.KeyTab)
+	if got := a.number("Items[0].Amount"); got != 1 {
+		t.Fatalf("staged inventory was applied early: %d", got)
+	}
+	if err := tt.Click("Apply Changes"); err != nil {
+		t.Fatal(err)
+	}
+	if got := a.number("Items[0].Amount"); got != 7 {
+		t.Fatalf("inventory apply failed: %d %s", got, a.Status)
+	}
+	a.Page = "Support"
+	tt.Frame()
+	if err := tt.Click("Points"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Key(ui.Cmd, ui.KeyA)
+	tt.Type("250")
+	tt.Key(0, ui.KeyTab)
+	if got := a.number("Player.CharacterSupportValues[0]"); got != 0 {
+		t.Fatal("support was applied before Set")
+	}
+	if err := tt.Click("Set"); err != nil {
+		t.Fatal(err)
+	}
+	if got := a.number("Player.CharacterSupportValues[0]"); got != 250 {
+		t.Fatalf("support apply failed: %d %s", got, a.Status)
+	}
+}
+
+func TestSystemFlagCopy(t *testing.T) {
+	a := fixture(t)
+	a.Page = "System"
+	a.table("system-flags").Query = "[0008]"
+	tt := ui.NewTester(a.View, 1200, 800)
+	label := "[0008] " + a.DB.Name("system-flags", 8)
+	if err := tt.Click(label); err != nil {
+		t.Fatal(err)
+	}
+	if enabled, _ := a.System.Flag(8); !enabled {
+		t.Fatal("system flag did not change")
+	}
+	dir := t.TempDir()
+	if err := a.SaveCopy(dir); err != nil {
+		t.Fatal(err)
+	}
+	system, err := save.OpenSystem(filepath.Join(dir, "system"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if enabled, _ := system.Flag(8); !enabled || !system.ChecksumValid {
+		t.Fatal("system copy lost flag or checksum")
+	}
+	original, err := save.OpenSystem(a.SystemPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if enabled, _ := original.Flag(8); enabled {
+		t.Fatal("source system was changed")
 	}
 }
 func TestSearchRetainsSourceSlotAndSaveCopy(t *testing.T) {

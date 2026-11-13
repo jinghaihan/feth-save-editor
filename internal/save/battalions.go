@@ -6,6 +6,14 @@ func battalionPath(slot int) string { return fmt.Sprintf("Player.Battalions[%d].
 func equippedPath(slot int) string {
 	return fmt.Sprintf("Characters[%d].data.EquippedBattalion.", slot)
 }
+
+// EquippedBattalionSlot returns the active roster slot linked to this entry,
+// or -1 when the battalion is not equipped.
+func (s *Buffer) EquippedBattalionSlot(slot int) (int, error) {
+	e := &editor{s: s}
+	linked := e.linked(slot)
+	return linked, e.err
+}
 func (e *editor) active(slot int) bool {
 	p := fmt.Sprintf("Characters[%d].data.", slot)
 	return e.n(p+"Id") >= 0 && e.n(p+"Level") > 0
