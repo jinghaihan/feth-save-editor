@@ -130,6 +130,12 @@ func (a *App) tab(key string) *int {
 	a.tabs[key] = &n
 	return &n
 }
+func (a *App) numberText(path string) string {
+	if a.Save == nil {
+		return ""
+	}
+	return fmt.Sprint(a.number(path))
+}
 func (a *App) number(path string) int64 {
 	if a.Save == nil {
 		return 0

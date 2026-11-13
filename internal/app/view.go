@@ -30,11 +30,7 @@ func (a *App) View(c *ui.Context) {
 			}
 		})
 		ui.Row(c).Grow(1).Basis(0).MinHeight(0).AlignItems(ui.Stretch).Children(func() {
-			ui.Column(c.Key(a.Page)).Grow(1).MinWidth(0).MinHeight(0).Padding(16).Gap(editorAppearance.SectionGap).Disabled(a.Save == nil && a.Page != "Database").Children(func() {
-				if a.Save == nil && a.Page != "Database" {
-					a.emptyPage(c)
-					return
-				}
+			ui.Column(c.Key(a.Page)).Grow(1).MinWidth(0).MinHeight(0).Padding(16).Gap(editorAppearance.SectionGap).Disabled(a.Save == nil && a.Page != "Database" || a.Page == "System" && a.System == nil).Children(func() {
 				switch a.Page {
 				case "Main":
 					a.mainPage(c)
@@ -74,19 +70,21 @@ func (a *App) View(c *ui.Context) {
 	}
 }
 func (a *App) input(c *ui.Context, label, path string, lo, hi int64) {
-	if minValue, maxValue, err := a.Save.NumberRange(path); err == nil {
-		lo = max(lo, minValue)
-		hi = min(hi, maxValue)
+	if a.Save != nil {
+		if minValue, maxValue, err := a.Save.NumberRange(path); err == nil {
+			lo = max(lo, minValue)
+			hi = min(hi, maxValue)
+		}
 	}
 	opened := a.Save
 	field := ui.Column(c.Key(path))
-	draft := ui.Local(field, "number", func() numberDraft { return numberDraft{Text: strconv.FormatInt(a.number(path), 10)} })
+	draft := ui.Local(field, "number", func() numberDraft { return numberDraft{Text: a.numberText(path)} })
 	commit := func() {
-		if a.Save == opened {
+		if opened != nil && a.Save == opened {
 			if value, ok := a.parseNumber(draft.Text, label, lo, hi); ok {
 				a.Set(path, value)
 			}
-			draft.Text = strconv.FormatInt(a.number(path), 10)
+			draft.Text = a.numberText(path)
 		}
 		draft.Focused = false
 	}
@@ -101,7 +99,7 @@ func (a *App) input(c *ui.Context, label, path string, lo, hi int64) {
 		if draft.Focused && !focused || input.Shortcut(0, ui.KeyEnter) {
 			commit()
 		} else if !focused {
-			draft.Text = strconv.FormatInt(a.number(path), 10)
+			draft.Text = a.numberText(path)
 		}
 		draft.Focused = focused
 		if focused {
@@ -132,6 +130,9 @@ func (a *App) combo(c *ui.Context, entries []catalog.Entry, id int, changed func
 			selected = labels[i]
 		}
 	}
+	if a.Save == nil {
+		selected = ""
+	}
 	input := ui.Combobox(c, &selected, labels)
 	if input.Changed() {
 		for i, label := range labels {
@@ -160,6 +161,9 @@ func (a *App) selectIndex(c *ui.Context, label string, at int, labels []string, 
 	if at >= 0 && at < len(labels) {
 		selected = translated[at]
 	}
+	if a.Save == nil {
+		selected = ""
+	}
 	editorField(c.Key(label), a.T(label), func() {
 		if ui.Select(c, &selected, translated).Changed() {
 			for i, v := range translated {
@@ -182,12 +186,16 @@ func (a *App) mainPage(c *ui.Context) {
 			a.twoColumns(c, func() {
 				a.section(c, "Player", func() {
 					ui.Column(c).Gap(editorAppearance.ControlGap).Children(func() {
-						name, _ := a.Save.Get("playerName")
+						name := ""
+						if a.Save != nil {
+							value, _ := a.Save.Get("playerName")
+							name, _ = value.(string)
+						}
 						box := ui.Column(c.Key("playerName"))
-						draft := ui.Local(box, "name", func() numberDraft { return numberDraft{Text: name.(string)} })
+						draft := ui.Local(box, "name", func() numberDraft { return numberDraft{Text: name} })
 						opened := a.Save
 						commit := func() {
-							if a.Save == opened {
+							if opened != nil && a.Save == opened {
 								a.apply(save.Operation{"op": "setName", "value": draft.Text})
 							}
 							draft.Focused = false
@@ -203,15 +211,18 @@ func (a *App) mainPage(c *ui.Context) {
 							if draft.Focused && !focused || input.Shortcut(0, ui.KeyEnter) {
 								commit()
 							} else if !focused {
-								draft.Text = name.(string)
+								draft.Text = name
 							}
 							draft.Focused = focused
 							if focused {
 								a.pendingInput = commit
 							}
 						})
-						gender, err := a.Save.ProtagonistGender()
-						if err == nil && gender != "" {
+						gender := ""
+						if a.Save != nil {
+							gender, _ = a.Save.ProtagonistGender()
+						}
+						if a.Save == nil || gender != "" {
 							at := 0
 							if gender == "female" {
 								at = 1
@@ -232,8 +243,11 @@ func (a *App) mainPage(c *ui.Context) {
 						}
 						a.selectIndex(c, "Instruct Level:", rank, []string{"E", "E+", "D", "D+", "C", "C+", "B", "B+", "A", "A+"}, func(i int) { a.apply(save.Operation{"op": "setProfessorRank", "rank": i}) })
 						a.input(c, "Instruct Exp:", "Activities.InstructExp", 0, 44500)
-						history := a.Save.Inheritance(a.DB)
-						a.selectIndex(c, "Inherited rank:", int(history["professorRank"].(byte)), []string{"E", "E+", "D", "D+", "C", "C+", "B", "B+", "A", "A+"}, func(i int) { a.apply(save.Operation{"op": "setNgPlusProfessorRank", "rank": i}) })
+						inheritedRank := 0
+						if a.Save != nil {
+							inheritedRank = int(a.Save.Inheritance(a.DB)["professorRank"].(byte))
+						}
+						a.selectIndex(c, "Inherited rank:", inheritedRank, []string{"E", "E+", "D", "D+", "C", "C+", "B", "B+", "A", "A+"}, func(i int) { a.apply(save.Operation{"op": "setNgPlusProfessorRank", "rank": i}) })
 					})
 				})
 				a.section(c, "Activity Points", func() {

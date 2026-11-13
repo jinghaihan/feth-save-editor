@@ -27,16 +27,18 @@ func (a *App) supportPage(c *ui.Context, inherited bool) {
 	if inherited {
 		key, section, op = "ng-supports", "inheritance", "maxNgPlusSupports"
 	}
-	snapshot, err := a.Save.Inspect(a.DB, section)
-	if err != nil {
-		ui.Text(c, err.Error())
-		return
-	}
 	var values []any
-	if inherited {
-		values = snapshot["inheritance"].(map[string]any)["supports"].([]any)
-	} else {
-		values = snapshot["supports"].([]any)
+	if a.Save != nil {
+		snapshot, err := a.Save.Inspect(a.DB, section)
+		if err != nil {
+			ui.Text(c, err.Error())
+			return
+		}
+		if inherited {
+			values = snapshot["inheritance"].(map[string]any)["supports"].([]any)
+		} else {
+			values = snapshot["supports"].([]any)
+		}
 	}
 	rows := []row{}
 	for i, v := range values {
@@ -48,12 +50,15 @@ func (a *App) supportPage(c *ui.Context, inherited bool) {
 		rows = append(rows, row{i, strings.ReplaceAll(a.DB.Name("supports", i), "🔗", "—"), a.supportRank(i, value.(int64))})
 	}
 	a.editorLayout(c, key, "Support List", rows, func() { a.action(c, "Reach All Maximum Ranks", save.Operation{"op": op}) }, func(index int) {
-		m := values[index].(map[string]any)
-		value := m["value"]
-		if inherited {
-			value = m["maxPoints"]
+		var points int64
+		if a.Save != nil {
+			m := values[index].(map[string]any)
+			if inherited {
+				points = m["maxPoints"].(int64)
+			} else {
+				points = m["value"].(int64)
+			}
 		}
-		points := value.(int64)
 		panel := ui.Column(c).Width(340).Gap(editorAppearance.ControlGap)
 		draft := ui.Local(panel, "support", func() struct {
 			source int64
@@ -67,6 +72,9 @@ func (a *App) supportPage(c *ui.Context, inherited bool) {
 		if draft.source != points {
 			draft.source, draft.text = points, fmt.Sprint(points)
 		}
+		if a.Save == nil {
+			draft.text = ""
+		}
 		panel.Children(func() {
 			title := "Support Editor"
 			if inherited {
@@ -77,6 +85,9 @@ func (a *App) supportPage(c *ui.Context, inherited bool) {
 			ui.Text(c, a.T("Maximum rank:")+" "+entry.MaximumRank)
 			n, _ := strconv.ParseInt(draft.text, 10, 64)
 			rank := a.supportRank(index, n)
+			if a.Save == nil {
+				rank = ""
+			}
 			editorField(c, a.T("Rank"), func() {
 				if ui.Select(c, &rank, entry.Ranks).Changed() {
 					for _, v := range a.DB.Catalog["support-ranks"] {
@@ -108,15 +119,20 @@ func (a *App) supportPage(c *ui.Context, inherited bool) {
 	})
 }
 func (a *App) inheritancePage(c *ui.Context) {
-	history := a.Save.Inheritance(a.DB)
-	characters := history["characters"].([]any)
+	var characters []any
+	if a.Save != nil {
+		characters = a.Save.Inheritance(a.DB)["characters"].([]any)
+	}
 	rows := []row{}
 	for i, v := range characters {
 		m := v.(map[string]any)
 		rows = append(rows, row{i, m["name"].(string), ""})
 	}
 	a.editorLayout(c, "inheritance", "Character List", rows, func() { a.action(c, "Unlock All Skills & Classes", save.Operation{"op": "unlockNgPlusRoster"}) }, func(index int) {
-		m := characters[index].(map[string]any)
+		var m map[string]any
+		if a.Save != nil {
+			m = characters[index].(map[string]any)
+		}
 		tab := a.tab("inheritance")
 		ui.Row(c).AlignItems(ui.Center).Children(func() {
 			ui.Tabs(c, tab, a.T("Skills"), a.T("Class Mastery"))
@@ -134,7 +150,10 @@ func (a *App) inheritancePage(c *ui.Context) {
 			}
 		})
 		if *tab == 0 {
-			ranks := m["skillRanks"].([]int)
+			ranks := make([]int, 11)
+			if m != nil {
+				ranks = m["skillRanks"].([]int)
+			}
 			editorForm(c, func() {
 				ui.Grid(c).Columns(2).Gap(editorAppearance.SectionGap).Children(func() {
 					for i := 0; i < 11; i++ {
@@ -148,8 +167,10 @@ func (a *App) inheritancePage(c *ui.Context) {
 			search := a.table("inheritance-classes")
 			ui.SearchField(c, &search.Query).Label(a.T("Search...")).Placeholder(a.T("Search..."))
 			mastered := map[int]bool{}
-			for _, id := range m["masteredClassIds"].([]int) {
-				mastered[id] = true
+			if m != nil {
+				for _, id := range m["masteredClassIds"].([]int) {
+					mastered[id] = true
+				}
 			}
 			ui.Scroll(c).Grow(1).MinHeight(0).Children(func() {
 				ui.Grid(c).Columns(3).Gap(editorAppearance.ControlGap).Children(func() {
@@ -169,12 +190,15 @@ func (a *App) inheritancePage(c *ui.Context) {
 	})
 }
 func (a *App) battalionsPage(c *ui.Context) {
-	snapshot, err := a.Save.Inspect(a.DB, "battalions")
-	if err != nil {
-		ui.Text(c, err.Error())
-		return
+	var values []any
+	if a.Save != nil {
+		snapshot, err := a.Save.Inspect(a.DB, "battalions")
+		if err != nil {
+			ui.Text(c, err.Error())
+			return
+		}
+		values = snapshot["battalions"].([]any)
 	}
-	values := snapshot["battalions"].([]any)
 	rows := []row{}
 	for i, v := range values {
 		m := v.(map[string]any)
@@ -189,10 +213,14 @@ func (a *App) battalionsPage(c *ui.Context) {
 			panel := ui.Column(c).Width(340).Gap(editorAppearance.ControlGap)
 			p := fmt.Sprintf("Player.Battalions[%d].", slot)
 			paths := []string{p + "CharacterId", p + "Type", p + "Exp", p + "Stamina", p + "Skill"}
-			equipped, err := a.Save.EquippedBattalionSlot(slot)
-			if err != nil {
-				ui.Text(c, err.Error())
-				return
+			equipped := -1
+			if a.Save != nil {
+				var err error
+				equipped, err = a.Save.EquippedBattalionSlot(slot)
+				if err != nil {
+					ui.Text(c, err.Error())
+					return
+				}
 			}
 			currentPath := fmt.Sprintf("Characters[%d].data.EquippedBattalion.Stamina", equipped)
 			if equipped >= 0 {
@@ -269,19 +297,18 @@ func (a *App) databasePage(c *ui.Context) {
 	})
 }
 func (a *App) systemPage(c *ui.Context) {
-	if a.System == nil {
-		ui.Text(c, a.T("No system save is loaded."))
-		return
-	}
-	snapshot, err := a.System.Inspect(a.DB, "all")
-	if err != nil {
-		ui.Text(c, err.Error())
-		return
+	var slots []any
+	if a.System != nil {
+		snapshot, err := a.System.Inspect(a.DB, "all")
+		if err != nil {
+			ui.Text(c, err.Error())
+			return
+		}
+		slots = snapshot["slots"].([]any)
 	}
 	ui.Row(c).Grow(1).Basis(0).MinHeight(0).Gap(editorAppearance.SectionGap).AlignItems(ui.Stretch).Children(func() {
 		a.card(c, a.T("Save Slots")).Width(320).MinHeight(0).Children(func() {
 			ui.Text(c, a.T("Save Slots"))
-			slots := snapshot["slots"].([]any)
 			state := a.table("system-slots")
 			themedList(c, &state.List, len(slots), func(i int) {
 				m := slots[i].(map[string]any)
@@ -302,7 +329,10 @@ func (a *App) systemPage(c *ui.Context) {
 			state.List.Key = func(i int) any { return ids[i] }
 			ui.List(c, &state.List, len(ids), func(row int) {
 				i := ids[row]
-				on, _ := a.System.Flag(i)
+				on := false
+				if a.System != nil {
+					on, _ = a.System.Flag(i)
+				}
 				name := fmt.Sprintf("[%04d] %s", i, a.DB.Name("system-flags", i))
 				if ui.Checkbox(c.Key(i), &on, name).Changed() {
 					_, err := a.System.Apply([]save.Operation{{"op": "setSystemFlag", "index": i, "value": on}})

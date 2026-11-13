@@ -10,7 +10,11 @@ import (
 
 func (a *App) rosterPage(c *ui.Context) {
 	rows := []row{}
-	for i := 0; i < 60; i++ {
+	count := 0
+	if a.Save != nil {
+		count = 60
+	}
+	for i := 0; i < count; i++ {
 		p := fmt.Sprintf("Characters[%d].data.", i)
 		rows = append(rows, row{i, a.DB.Name("characters", int(a.number(p+"Id"))), fmt.Sprintf("Lv.%d", a.number(p+"Level"))})
 	}
@@ -164,7 +168,10 @@ func (a *App) characterClasses(c *ui.Context, slot int) {
 	if a.tables[key] == nil {
 		a.table(key).Selected = int(a.number(p + "Class"))
 	}
-	rows := make([]row, 100)
+	var rows []row
+	if a.Save != nil {
+		rows = make([]row, 100)
+	}
 	for i := range rows {
 		rows[i] = row{i, a.DB.Name("classes", i), fmt.Sprintf("%d / %d", a.number(fmt.Sprintf("%sClassExp[%d]", p, i)), a.number(fmt.Sprintf("%sClassLevel[%d]", p, i)))}
 	}
@@ -172,6 +179,9 @@ func (a *App) characterClasses(c *ui.Context, slot int) {
 		id := -1
 		a.groupBox(c, "Class Experience").Grow(1).MinHeight(0).Children(func() { id = a.selection(c, key, "Class Experience", rows, nil) })
 		panel := ui.Column(c.Key(id)).Width(240).Gap(editorAppearance.ControlGap)
+		if a.Save == nil {
+			id = 0
+		}
 		if id < 0 {
 			return
 		}
@@ -199,10 +209,14 @@ func (a *App) flagGrid(c *ui.Context, path string, count int, name func(int) str
 	ui.Grid(c).Columns(3).Gap(editorAppearance.ControlGap).Children(func() { a.flagRows(c, path, count, name) })
 }
 func (a *App) flagRows(c *ui.Context, path string, count int, name func(int) string) {
-	value, err := a.Save.Record(path)
-	if err != nil {
-		ui.Text(c, err.Error())
-		return
+	var value any
+	if a.Save != nil {
+		var err error
+		value, err = a.Save.Record(path)
+		if err != nil {
+			ui.Text(c, err.Error())
+			return
+		}
 	}
 	for i := 0; i < count; i++ {
 		var on bool

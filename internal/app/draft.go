@@ -27,7 +27,7 @@ func (a *App) draft(panel ui.Element, paths ...string) *editDraft {
 		d.source = source.String()
 		d.values = make(map[string]string, len(paths))
 		for _, path := range paths {
-			d.values[path] = strconv.FormatInt(a.number(path), 10)
+			d.values[path] = a.numberText(path)
 		}
 	}
 	return d

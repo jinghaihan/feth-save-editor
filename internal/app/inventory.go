@@ -13,7 +13,10 @@ func (a *App) itemsPage(c *ui.Context) {
 	scale := min(float32(1), width/1120)
 	listWidth, editorWidth := max(float32(190), 250*scale), max(float32(168), 220*scale)
 	ui.Row(c).Grow(1).Basis(0).MinHeight(0).Gap(10).AlignItems(ui.Stretch).Children(func() {
-		rows := make([]row, 400)
+		var rows []row
+		if a.Save != nil {
+			rows = make([]row, 400)
+		}
 		for i := range rows {
 			p := fmt.Sprintf("Items[%d].", i)
 			rows[i] = row{i, a.DB.Name("items", int(a.number(p+"Id"))), fmt.Sprintf("%d / %d", a.number(p+"Durability"), a.number(p+"Amount"))}
@@ -22,6 +25,9 @@ func (a *App) itemsPage(c *ui.Context) {
 		a.card(c, a.T("Item List")).Width(listWidth).MinHeight(0).Children(func() { selected = a.selection(c, "items-items", "Item List", rows, nil) })
 		ui.Column(c).Width(editorWidth).MinHeight(0).Children(func() {
 			panel := ui.Column(c.Key(selected)).Fill().Gap(10)
+			if a.Save == nil {
+				selected = 0
+			}
 			if selected < 0 {
 				return
 			}
@@ -29,7 +35,11 @@ func (a *App) itemsPage(c *ui.Context) {
 			draft := a.draft(panel, p+"Id", p+"Durability", p+"Amount")
 			panel.Children(func() {
 				a.scrollingSection(c, "Item Editor", func() {
-					ui.Textf(c, "%s %d", a.T("Slot"), selected)
+					if a.Save != nil {
+						ui.Textf(c, "%s %d", a.T("Slot"), selected)
+					} else {
+						ui.Text(c, a.T("Slot"))
+					}
 					draft.choice(a, c, "Item", p+"Id", a.DB.Catalog["items"])
 					draft.number(a, c, "Durability", p+"Durability")
 					draft.number(a, c, "Amount", p+"Amount")
@@ -72,7 +82,11 @@ func (a *App) itemsPage(c *ui.Context) {
 
 func (a *App) smallInventory(c *ui.Context, kind string) {
 	rows := []row{}
-	for _, entry := range a.DB.Catalog[kind] {
+	entries := a.DB.Catalog[kind]
+	if a.Save == nil {
+		entries = nil
+	}
+	for _, entry := range entries {
 		path := fmt.Sprintf("Player.MiscItems[%d]", entry.ID)
 		if kind == "gifts" {
 			path = fmt.Sprintf("gifts[%d]", entry.ID)
@@ -88,6 +102,9 @@ func (a *App) smallInventory(c *ui.Context, kind string) {
 	id := -1
 	ui.Column(c).Grow(1).MinHeight(0).Children(func() { id = a.selection(c, "items-"+kind, "", rows, nil) })
 	panel := ui.Column(c.Key(id)).Gap(editorAppearance.ControlGap)
+	if a.Save == nil {
+		id = 0
+	}
 	if id < 0 {
 		return
 	}
@@ -108,7 +125,11 @@ func (a *App) smallInventory(c *ui.Context, kind string) {
 
 func (a *App) questsPage(c *ui.Context) {
 	rows := []row{}
-	for _, q := range a.DB.Catalog["quests"] {
+	quests := a.DB.Catalog["quests"]
+	if a.Save == nil {
+		quests = nil
+	}
+	for _, q := range quests {
 		rows = append(rows, row{q.ID, q.Name, fmt.Sprint(a.number(fmt.Sprintf("Activities.QuestStateList[%d]", q.ID)))})
 	}
 	a.editorLayout(c, "quests", "Quest List", rows, nil, func(id int) {

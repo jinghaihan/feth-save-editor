@@ -153,8 +153,8 @@ func (a *App) editorLayout(c *ui.Context, key, title string, rows []row, footer 
 		editorTitle := map[string]string{"roster": "Character Editor", "inheritance": "NG+ Roster", "supports": "Support Editor", "ng-supports": "Inherited support rank", "battalions": "Battalion Editor", "quests": "Quest Editor"}[key]
 		a.card(c, a.T(editorTitle)).Grow(1).MinHeight(0).Children(func() {
 			ui.Column(c.Key(id)).Grow(1).Basis(0).MinWidth(0).MinHeight(0).Gap(editorAppearance.SectionGap).Children(func() {
-				if id >= 0 {
-					detail(id)
+				if id >= 0 || a.Save == nil {
+					detail(max(0, id))
 				}
 			})
 		})

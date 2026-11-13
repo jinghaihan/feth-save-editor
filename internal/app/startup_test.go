@@ -2,10 +2,13 @@ package app
 
 import (
 	"bytes"
-	"github.com/egoist/mygo/ui"
+	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/egoist/mygo/ui"
 )
 
 func TestSystemLanguagePreference(t *testing.T) {
@@ -16,6 +19,134 @@ func TestSystemLanguagePreference(t *testing.T) {
 		if got := systemLanguage(test.preferred); got != test.want {
 			t.Fatalf("%v => %s, want %s", test.preferred, got, test.want)
 		}
+	}
+}
+
+func TestUnloadedPageGeometry(t *testing.T) {
+	for _, language := range []string{"en_u", "zh_hans"} {
+		for _, dark := range []bool{false, true} {
+			for _, size := range [][2]int{{1120, 780}, {860, 600}} {
+				t.Run(fmt.Sprintf("%s/dark=%v/%dx%d", language, dark, size[0], size[1]), func(t *testing.T) {
+					a := New()
+					a.dark = dark
+					a.setLanguage(language, false)
+					tt := ui.NewTesterWith(a.View, size[0], size[1], ui.TesterOptions{Dark: dark})
+					for _, view := range layoutViews() {
+						t.Run(fmt.Sprintf("%s-%d", view.page, view.tab), func(t *testing.T) {
+							a.Page = view.page
+							a.revision++
+							if view.key != "" {
+								*a.tab(view.key) = view.tab
+							}
+							tt.Frame()
+							assertControlsFit(t, tt, size[0])
+							if view.page == "Main" {
+								var fieldX float32 = -1
+								for _, node := range tt.AccessAll() {
+									if !visibleControl(node) || node.Bounds.X > float32(size[0])/2 {
+										continue
+									}
+									if fieldX < 0 {
+										fieldX = node.Bounds.X
+									}
+									if math.Abs(float64(node.Bounds.X-fieldX)) > 0.5 {
+										t.Errorf("overview fields have different left edges: %s", node.Name)
+									}
+								}
+							}
+							if view.page == "Items" {
+								list, _ := tt.AccessByRole(ui.RoleGroup, a.T("Item List"))
+								if list.Bounds.H < float32(size[1])-100 {
+									t.Fatalf("unloaded inventory collapsed: %+v", list.Bounds)
+								}
+								for _, title := range []string{"Misc Items", "Gift Items"} {
+									card, _ := tt.AccessByRole(ui.RoleGroup, a.T(title))
+									if card.Bounds.Y != list.Bounds.Y || card.Bounds.H != list.Bounds.H {
+										t.Errorf("unloaded inventory cards have different heights: %s", title)
+									}
+								}
+								editor, _ := tt.AccessByRole(ui.RoleGroup, a.T("Item Editor"))
+								tools, _ := tt.AccessByRole(ui.RoleGroup, a.T("Item Tools"))
+								if editor.Bounds.Y != list.Bounds.Y || tools.Bounds.Y+tools.Bounds.H != list.Bounds.Y+list.Bounds.H || math.Abs(float64(editor.Bounds.H-tools.Bounds.H)) > 0.5 {
+									t.Error("unloaded inventory editor column does not fill the page equally")
+								}
+							}
+							for _, area := range tt.AccessAll() {
+								if area.Role == ui.RoleScroll && !area.Offscreen && area.Bounds.H > 100 {
+									r := area.Bounds
+									tt.Scroll(r.X+r.W/2, r.Y+r.H/2, 0, 10000)
+								}
+							}
+							tt.Frame()
+							assertControlsFit(t, tt, size[0])
+						})
+					}
+				})
+			}
+		}
+	}
+}
+
+func TestProvidedSaveLayouts(t *testing.T) {
+	path := os.Getenv("FETH_TEST_SAVE")
+	if path == "" {
+		t.Skip("set FETH_TEST_SAVE to inspect a local save without writing it")
+	}
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := New()
+	if err := a.Load(path); err != nil {
+		t.Fatal(err)
+	}
+	for _, language := range []string{"en_u", "zh_hans"} {
+		a.setLanguage(language, false)
+		for _, dark := range []bool{false, true} {
+			a.dark = dark
+			for _, size := range [][2]int{{1120, 780}, {860, 600}} {
+				tt := ui.NewTesterWith(a.View, size[0], size[1], ui.TesterOptions{Dark: dark})
+				for _, view := range layoutViews() {
+					t.Run(fmt.Sprintf("%s/dark=%v/%dx%d/%s-%d", language, dark, size[0], size[1], view.page, view.tab), func(t *testing.T) {
+						a.Page = view.page
+						a.revision++
+						if view.key != "" {
+							*a.tab(view.key) = view.tab
+						}
+						tt.Frame()
+						assertControlsFit(t, tt, size[0])
+					})
+				}
+			}
+		}
+	}
+	if !bytes.Equal(before, a.Save.FinishedBytes()) {
+		t.Fatal("viewing the forms changed the loaded save")
+	}
+	after, err := os.ReadFile(path)
+	if err != nil || !bytes.Equal(before, after) {
+		t.Fatal("viewing the forms changed the source file")
+	}
+}
+
+func TestLoadingEnablesExistingForms(t *testing.T) {
+	loaded := fixture(t)
+	a := New()
+	a.Page = "Items"
+	tt := ui.NewTester(a.View, 1120, 780)
+	if err := a.Load(loaded.Path); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	apply, ok := tt.AccessByRole(ui.RoleButton, "Apply Changes")
+	if !ok || apply.Disabled {
+		t.Fatal("loading a save did not enable the existing inventory editor")
+	}
+	a.Page = "Main"
+	tt.Frame()
+	money, ok := tt.AccessByRole(ui.RoleTextField, "Money:")
+	if !ok || money.Disabled || money.Value != "0" {
+		t.Fatal("loading a save did not populate and enable the overview")
 	}
 }
 func TestAutomaticLanguageIsNotSavedAsManualChoice(t *testing.T) {
