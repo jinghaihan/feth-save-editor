@@ -145,13 +145,17 @@ var skillRanks = []string{"E", "E+", "D", "D+", "C", "C+", "B", "B+", "A", "A+",
 
 func (a *App) characterClasses(c *ui.Context, slot int) {
 	p := fmt.Sprintf("Characters[%d].data.", slot)
+	key := fmt.Sprintf("character-classes-%d", slot)
+	if a.tables[key] == nil {
+		a.table(key).Selected = int(a.number(p + "Class"))
+	}
 	rows := make([]row, 100)
 	for i := range rows {
 		rows[i] = row{i, a.DB.Name("classes", i), fmt.Sprintf("%d / %d", a.number(fmt.Sprintf("%sClassExp[%d]", p, i)), a.number(fmt.Sprintf("%sClassLevel[%d]", p, i)))}
 	}
 	ui.Row(c).Grow(1).Basis(0).MinHeight(0).Gap(12).AlignItems(ui.Stretch).Children(func() {
 		id := -1
-		ui.Column(c).Grow(1).MinWidth(0).MinHeight(0).Children(func() { id = a.selection(c, fmt.Sprintf("character-classes-%d", slot), "Class Experience", rows, nil) })
+		ui.Column(c).Grow(1).MinWidth(0).MinHeight(0).Children(func() { id = a.selection(c, key, "Class Experience", rows, nil) })
 		panel := ui.Column(c.Key(id)).Width(200).Gap(8)
 		if id < 0 {
 			return

@@ -54,6 +54,10 @@ func (a *App) section(c *ui.Context, title string, contents func()) {
 // selection keeps each old list's own search, selection and stable source ID.
 func (a *App) selection(c *ui.Context, key, title string, rows []row, footer func()) int {
 	s := a.table(key)
+	previousID := -1
+	if s.Selected >= 0 && s.Selected < len(s.Rows) {
+		previousID = s.Rows[s.Selected].ID
+	}
 	ui.Column(c.Key(key)).Fill().Gap(8).Children(func() {
 		if title != "" {
 			ui.Text(c, a.T(title))
@@ -63,6 +67,15 @@ func (a *App) selection(c *ui.Context, key, title string, rows []row, footer fun
 		for _, r := range rows {
 			if strings.Contains(strings.ToLower(fmt.Sprintf("%d %s %s", r.ID, r.Name, r.Value)), strings.ToLower(s.Query)) {
 				filtered = append(filtered, r)
+			}
+		}
+		if previousID >= 0 {
+			s.Selected = 0
+			for i, r := range filtered {
+				if r.ID == previousID {
+					s.Selected = i
+					break
+				}
 			}
 		}
 		s.Rows = filtered

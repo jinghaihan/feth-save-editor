@@ -274,6 +274,43 @@ func TestSearchRetainsSourceSlotAndSaveCopy(t *testing.T) {
 	}
 	tt.Frame()
 }
+
+func TestFilterPreservesSelectedSource(t *testing.T) {
+	a := fixture(t)
+	a.Page = "Roster"
+	a.Set("Characters[5].data.Id", 10)
+	a.Set("Characters[5].data.Level", 20)
+	s := a.table("roster")
+	s.Selected = 5
+	tt := ui.NewTester(a.View, 1200, 800)
+	s.Query = "Lv.20"
+	tt.Frame()
+	if len(s.Rows) != 2 || s.Rows[s.Selected].ID != 5 {
+		t.Fatalf("filter changed the selected character: %+v selected=%d", s.Rows, s.Selected)
+	}
+}
+
+func TestLegacyLanguagePreferences(t *testing.T) {
+	a := New()
+	a.preferencesPath = filepath.Join(t.TempDir(), "FethEditor", "language.txt")
+	t.Setenv("FETH_EDITOR_LANGUAGE", "")
+	os.Unsetenv("FETH_EDITOR_LANGUAGE")
+	if err := a.SetLanguage("zh_hans"); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(a.preferencesPath)
+	if err != nil || string(b) != "zh_hans" {
+		t.Fatalf("legacy language file: %q %v", b, err)
+	}
+	t.Setenv("FETH_EDITOR_LANGUAGE", "jp")
+	if err := a.SetLanguage("jp"); err != nil {
+		t.Fatal(err)
+	}
+	b, _ = os.ReadFile(a.preferencesPath)
+	if string(b) != "zh_hans" {
+		t.Fatal("environment override changed persisted language")
+	}
+}
 func TestConfirmationCancelAndCallbacks(t *testing.T) {
 	a := fixture(t)
 	tt := ui.NewTester(a.View, 1200, 800)

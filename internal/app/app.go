@@ -3,7 +3,6 @@ package app
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -251,26 +250,38 @@ func (a *App) loadPreferences() {
 	if err != nil {
 		return
 	}
-	a.preferencesPath = filepath.Join(dir, "feth-save-editor", "preferences.json")
-	b, err := os.ReadFile(a.preferencesPath)
-	if err != nil {
-		return
+	a.preferencesPath = filepath.Join(dir, "FethEditor", "language.txt")
+	if forced := strings.TrimSpace(os.Getenv("FETH_EDITOR_LANGUAGE")); forced != "" {
+		if a.SetLanguage(canonicalLanguage(forced)) == nil {
+			return
+		}
 	}
-	var p struct{ Language string }
-	if json.Unmarshal(b, &p) == nil && p.Language != "" {
-		a.SetLanguage(p.Language)
+	if b, err := os.ReadFile(a.preferencesPath); err == nil {
+		a.SetLanguage(canonicalLanguage(strings.TrimSpace(string(b))))
 	}
 }
 func (a *App) storePreferences() {
-	if a.preferencesPath == "" {
+	_, forced := os.LookupEnv("FETH_EDITOR_LANGUAGE")
+	if a.preferencesPath == "" || forced {
 		return
 	}
-	b, _ := json.Marshal(map[string]string{"language": a.Language})
 	if err := os.MkdirAll(filepath.Dir(a.preferencesPath), 0700); err == nil {
-		if err = os.WriteFile(a.preferencesPath, b, 0600); err != nil {
+		if err = os.WriteFile(a.preferencesPath, []byte(a.Language), 0600); err != nil {
 			a.Status = err.Error()
 		}
 	}
+}
+func canonicalLanguage(code string) string {
+	code = strings.ToLower(code)
+	switch code {
+	case "en_e":
+		return "en_u"
+	case "fr_e":
+		return "fr_u"
+	case "es_e":
+		return "es_u"
+	}
+	return code
 }
 func (a *App) menu() {
 	mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
