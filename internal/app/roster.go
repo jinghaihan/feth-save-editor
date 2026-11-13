@@ -16,8 +16,9 @@ func (a *App) rosterPage(c *ui.Context) {
 	}
 	a.editorLayout(c, "roster", "Character List", rows, nil, func(slot int) {
 		p := fmt.Sprintf("Characters[%d].data.", slot)
-		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-			a.choice(c, "Character Identity:", a.DB.Catalog["characters"], int(a.number(p+"Id")), func(id int) { a.Set(p+"Id", int64(id)) })
+		ui.Row(c).Gap(editorAppearance.ControlGap).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, a.T("Character Identity:")).SingleLine()
+			a.combo(c, a.DB.Catalog["characters"], int(a.number(p+"Id")), func(id int) { a.Set(p+"Id", int64(id)) }).Label(a.T("Character Identity:")).Width(180).Shrink(0)
 			if ui.Button(c, a.T("Export")).Clicked() {
 				a.exportCharacter(slot)
 			}
@@ -36,13 +37,13 @@ func (a *App) rosterPage(c *ui.Context) {
 			return
 		}
 		ui.Scroll(c).Grow(1).MinHeight(0).Children(func() {
-			ui.Column(c).Gap(12).Children(func() {
+			ui.Column(c).Gap(editorAppearance.SectionGap).Children(func() {
 				switch *tab {
 				case 0:
-					a.twoColumns(c, func() {
-						a.section(c, "Stats", func() {
+					a.columns(c, 332, func() {
+						a.group(c, "Stats", func() {
 							ui.Text(c, a.T("Class:")+" "+a.DB.Name("classes", int(a.number(p+"Class"))))
-							ui.Form(c, func() {
+							editorForm(c, func() {
 								for _, f := range []struct{ label, path string }{{"RNG Value", "RNG_VALUE"}, {"Level", "Level"}, {"Experience", "Exp"}, {"HP", "HP"}, {"Strength", "Strength"}, {"Magic", "Magic"}, {"Dexterity", "Dexterity"}, {"Speed", "Speed"}, {"Luck", "Luck"}, {"Defense", "Defense"}, {"Resistance", "Resistance"}, {"Movement", "Movement"}, {"Charm", "Charm"}, {"Motivation", "Motivation"}} {
 									a.input(c, f.label, p+f.path, 0, 4294967295)
 								}
@@ -50,14 +51,14 @@ func (a *App) rosterPage(c *ui.Context) {
 							typ := int(a.number(p + "EquippedBattalion.Type"))
 							ui.Text(c, a.T("Equipped Battalion:")+" "+a.DB.Name("battalions", typ))
 							if typ < 200 {
-								ui.Row(c).Gap(8).Children(func() {
+								ui.Row(c).Gap(editorAppearance.ControlGap).Children(func() {
 									ui.Textf(c, "%s: %d", a.T("Endurance"), a.number(p+"EquippedBattalion.Stamina"))
 									a.action(c, "Replenish", save.Operation{"op": "replenishCharacterBattalion", "slot": slot})
 								})
 							}
 						})
 					}, func() {
-						a.section(c, "Equipped Abilities", func() {
+						a.group(c, "Equipped Abilities", func() {
 							choices := make([]catalog.Entry, 0, 256)
 							for _, entry := range a.DB.Catalog["abilities"] {
 								if entry.ID >= 0 && entry.ID < 255 {
@@ -66,22 +67,22 @@ func (a *App) rosterPage(c *ui.Context) {
 								}
 							}
 							choices = append(choices, catalog.Entry{ID: 255, Name: "----"})
-							ui.Form(c, func() {
+							editorForm(c, func() {
 								for i := 0; i < 5; i++ {
 									path := fmt.Sprintf("%sEquippedAbilities[%d]", p, i)
 									a.choice(c, fmt.Sprint(i+1), choices, int(a.number(path)), func(id int) { a.Set(path, int64(id)) })
 								}
 							})
 						})
-						a.section(c, "Equipped Combat Arts", func() {
-							ui.Form(c, func() {
+						a.group(c, "Equipped Combat Arts", func() {
+							editorForm(c, func() {
 								for i := 0; i < 3; i++ {
 									path := fmt.Sprintf("%sEquippedCombatArts[%d]", p, i)
 									a.choice(c, fmt.Sprint(i+1), a.DB.Catalog["arts"], int(a.number(path)), func(id int) { a.Set(path, int64(id)) })
 								}
 							})
 						})
-						a.section(c, "Item List", func() {
+						a.group(c, "Item List", func() {
 							a.action(c, "Restore Item Durability", save.Operation{"op": "characterItemDurability", "slot": slot})
 							for i := 0; i < 6; i++ {
 								a.characterItem(c.Key(i), slot, i)
@@ -90,8 +91,8 @@ func (a *App) rosterPage(c *ui.Context) {
 					})
 				case 1:
 					a.twoColumns(c, func() {
-						a.section(c, "Skill Experience", func() {
-							ui.Form(c, func() {
+						a.group(c, "Skill Experience", func() {
+							editorForm(c, func() {
 								for i := 0; i < 11; i++ {
 									rank := int(a.number(fmt.Sprintf("%sSkillLevel[%d]", p, i)))
 									rankName := fmt.Sprint(rank)
@@ -105,7 +106,7 @@ func (a *App) rosterPage(c *ui.Context) {
 							a.action(c, "Max Skill Experience", save.Operation{"op": "maxSkillExp", "slot": slot})
 						})
 					}, func() {
-						a.section(c, "Learned Magic", func() {
+						a.group(c, "Learned Magic", func() {
 							for i := 0; i < 12; i++ {
 								id := int(a.number(fmt.Sprintf("%sLearnedMagic[%d]", p, i)))
 								ui.Textf(c, "%02d · %s · %d", i, a.DB.Name("magic", id), a.number(fmt.Sprintf("%sMagicDurability[%d]", p, i)))
@@ -114,19 +115,19 @@ func (a *App) rosterPage(c *ui.Context) {
 					})
 				case 2:
 					a.twoColumns(c, func() {
-						a.section(c, "Character Flags", func() {
+						a.group(c, "Character Flags", func() {
 							a.flagRows(c, p+"Flags", 32, func(i int) string { return a.T(a.DB.Name("enmCharacterFlags", i)) })
 						})
 					}, func() {
-						a.section(c, "Class Flags", func() {
+						a.group(c, "Class Flags", func() {
 							a.flagRows(c, p+"ClassFlags", 8, func(i int) string { return a.T(a.DB.Name("enmCharacterClassFlags", i)) })
 						})
-						a.section(c, "Adjutant", func() {
+						a.group(c, "Adjutant", func() {
 							a.choice(c, "Adjutant", a.DB.Catalog["characters"], int(a.number(p+"AdjutantId")), func(id int) { a.Set(p+"AdjutantId", int64(id)) })
 						})
 					})
 				case 4:
-					a.section(c, "Class Unlock Flags", func() {
+					a.group(c, "Class Unlock Flags", func() {
 						a.flagGrid(c, p+"ClassUnlockFlags", 64, func(i int) string { return a.DB.Name("unit-classes", i) })
 					})
 				case 5:
@@ -153,10 +154,10 @@ func (a *App) characterClasses(c *ui.Context, slot int) {
 	for i := range rows {
 		rows[i] = row{i, a.DB.Name("classes", i), fmt.Sprintf("%d / %d", a.number(fmt.Sprintf("%sClassExp[%d]", p, i)), a.number(fmt.Sprintf("%sClassLevel[%d]", p, i)))}
 	}
-	ui.Row(c).Grow(1).Basis(0).MinHeight(0).Gap(12).AlignItems(ui.Stretch).Children(func() {
+	ui.Row(c).Grow(1).Basis(0).MinHeight(0).Gap(editorAppearance.SectionGap).AlignItems(ui.Stretch).Children(func() {
 		id := -1
-		ui.Column(c).Grow(1).MinWidth(0).MinHeight(0).Children(func() { id = a.selection(c, key, "Class Experience", rows, nil) })
-		panel := ui.Column(c.Key(id)).Width(200).Gap(8)
+		a.groupBox(c, "Class Experience").Grow(1).MinHeight(0).Children(func() { id = a.selection(c, key, "Class Experience", rows, nil) })
+		panel := ui.Column(c.Key(id)).Width(200).Gap(editorAppearance.ControlGap)
 		if id < 0 {
 			return
 		}
@@ -164,23 +165,24 @@ func (a *App) characterClasses(c *ui.Context, slot int) {
 		levelPath := fmt.Sprintf("%sClassLevel[%d]", p, id)
 		draft := a.draft(panel, expPath, levelPath)
 		panel.Children(func() {
-			ui.Text(c, a.T("Class Editor"))
-			ui.Text(c, a.T("Current class:")+" "+a.DB.Name("classes", int(a.number(p+"Class"))))
-			draft.number(a, c, "Experience", expPath)
-			draft.number(a, c, "Mastery Level (0 or 1)", levelPath)
-			if ui.Button(c, a.T("Set Class Values")).Clicked() {
-				exp, ok := a.parseNumber(draft.values[expPath], "Experience", 0, int64(catalog.ClassExp(id)))
-				level, levelOK := a.parseNumber(draft.values[levelPath], "Mastery", 0, 1)
-				if ok && levelOK {
-					a.applyBatch(save.Operation{"op": "set", "path": expPath, "value": exp}, save.Operation{"op": "set", "path": levelPath, "value": level})
+			a.group(c, "Class Editor", func() {
+				ui.Text(c, a.T("Current class:")+" "+a.DB.Name("classes", int(a.number(p+"Class"))))
+				draft.number(a, c, "Experience", expPath)
+				draft.number(a, c, "Mastery Level (0 or 1)", levelPath)
+				if ui.Button(c, a.T("Set Class Values")).Clicked() {
+					exp, ok := a.parseNumber(draft.values[expPath], "Experience", 0, int64(catalog.ClassExp(id)))
+					level, levelOK := a.parseNumber(draft.values[levelPath], "Mastery", 0, 1)
+					if ok && levelOK {
+						a.applyBatch(save.Operation{"op": "set", "path": expPath, "value": exp}, save.Operation{"op": "set", "path": levelPath, "value": level})
+					}
 				}
-			}
+			})
 			a.action(c, "Max All Class Experience", save.Operation{"op": "maxClassExp", "slot": slot})
 		})
 	})
 }
 func (a *App) flagGrid(c *ui.Context, path string, count int, name func(int) string) {
-	ui.Grid(c).Columns(3).Gap(8).Children(func() { a.flagRows(c, path, count, name) })
+	ui.Grid(c).Columns(3).Gap(editorAppearance.ControlGap).Children(func() { a.flagRows(c, path, count, name) })
 }
 func (a *App) flagRows(c *ui.Context, path string, count int, name func(int) string) {
 	value, err := a.Save.Record(path)
@@ -204,20 +206,19 @@ func (a *App) flagRows(c *ui.Context, path string, count int, name func(int) str
 func (a *App) characterItem(c *ui.Context, slot, itemSlot int) {
 	p := fmt.Sprintf("Characters[%d].data.Items[%d].", slot, itemSlot)
 	count := int(a.number(fmt.Sprintf("Characters[%d].data.ItemCount", slot)))
-	ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-		ui.Column(c).Grow(1).MinWidth(0).Disabled(itemSlot > count).Children(func() {
-			a.choice(c, fmt.Sprint(itemSlot+1), a.DB.Catalog["items"], int(a.number(p+"Id")), func(id int) {
-				a.apply(save.Operation{"op": "setCharacterItem", "slot": slot, "itemSlot": itemSlot, "id": id})
-			})
-		})
+	ui.Row(c).Gap(editorAppearance.ControlGap).AlignItems(ui.Center).Children(func() {
+		ui.Text(c, fmt.Sprint(itemSlot+1)).Width(18).SingleLine()
+		a.combo(c, a.DB.Catalog["items"], int(a.number(p+"Id")), func(id int) {
+			a.apply(save.Operation{"op": "setCharacterItem", "slot": slot, "itemSlot": itemSlot, "id": id})
+		}).Label(fmt.Sprintf("%s %d", a.T("Item"), itemSlot+1)).Grow(1).MinWidth(0).Disabled(itemSlot > count)
 		value := float64(a.number(p + "Durability"))
 		maximum := max(value, float64(catalog.Rules.Durability[int(a.number(p+"Id"))]))
 		// Toolbar gives the stock stepper its standard borderless buttons.
 		ui.Toolbar(c, func() {
-			if ui.NumberInput(c, &value, 0, maximum, 1).Label(a.T("Durability")).Changed() {
+			if ui.NumberInput(c, &value, 0, maximum, 1).Width(104).Label(fmt.Sprintf("%s %d", a.T("Durability"), itemSlot+1)).Changed() {
 				a.apply(save.Operation{"op": "setCharacterItem", "slot": slot, "itemSlot": itemSlot, "id": a.number(p + "Id"), "durability": int(value)})
 			}
-		}).Padding(0).Disabled(itemSlot >= count)
+		}).Width(104).Padding(0).Disabled(itemSlot >= count)
 	})
 }
 func (a *App) exportCharacter(slot int) {

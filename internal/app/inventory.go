@@ -9,16 +9,19 @@ import (
 )
 
 func (a *App) itemsPage(c *ui.Context) {
-	ui.Row(c).Grow(1).Basis(0).MinHeight(0).Gap(12).AlignItems(ui.Stretch).Children(func() {
+	width, _ := c.Size()
+	scale := min(float32(1), width/1120)
+	listWidth, editorWidth := max(float32(190), 250*scale), max(float32(168), 220*scale)
+	ui.Row(c).Grow(1).Basis(0).MinHeight(0).Gap(editorAppearance.SectionGap).AlignItems(ui.Stretch).Children(func() {
 		rows := make([]row, 400)
 		for i := range rows {
 			p := fmt.Sprintf("Items[%d].", i)
 			rows[i] = row{i, a.DB.Name("items", int(a.number(p+"Id"))), fmt.Sprintf("%d / %d", a.number(p+"Durability"), a.number(p+"Amount"))}
 		}
 		selected := -1
-		ui.Column(c).Width(250).MinHeight(0).Children(func() { selected = a.selection(c, "items-items", "Item List", rows, nil) })
-		ui.Scroll(c).Width(220).MinHeight(0).Children(func() {
-			panel := ui.Column(c.Key(selected)).Gap(12)
+		a.card(c, a.T("Item List")).Width(listWidth).MinHeight(0).Children(func() { selected = a.selection(c, "items-items", "Item List", rows, nil) })
+		ui.Scroll(c).Width(editorWidth).MinHeight(0).Children(func() {
+			panel := ui.Column(c.Key(selected)).Gap(editorAppearance.SectionGap)
 			if selected < 0 {
 				return
 			}
@@ -58,7 +61,11 @@ func (a *App) itemsPage(c *ui.Context) {
 			})
 		})
 		for _, kind := range []string{"misc", "gifts"} {
-			ui.Column(c.Key(kind)).Grow(1).MinWidth(0).MinHeight(0).Children(func() { a.smallInventory(c, kind) })
+			title := "Misc Items"
+			if kind == "gifts" {
+				title = "Gift Items"
+			}
+			a.card(c.Key(kind), a.T(title)).Grow(1).MinHeight(0).Children(func() { a.smallInventory(c, kind) })
 		}
 	})
 }
@@ -80,7 +87,7 @@ func (a *App) smallInventory(c *ui.Context, kind string) {
 	a.action(c, "Get All (99)", save.Operation{"op": "fillItems", "kind": kind, "amount": 99})
 	id := -1
 	ui.Column(c).Grow(1).MinHeight(0).Children(func() { id = a.selection(c, "items-"+kind, "", rows, nil) })
-	panel := ui.Column(c.Key(id))
+	panel := ui.Column(c.Key(id)).Gap(editorAppearance.ControlGap)
 	if id < 0 {
 		return
 	}
@@ -105,7 +112,7 @@ func (a *App) questsPage(c *ui.Context) {
 		rows = append(rows, row{q.ID, q.Name, fmt.Sprint(a.number(fmt.Sprintf("Activities.QuestStateList[%d]", q.ID)))})
 	}
 	a.editorLayout(c, "quests", "Quest List", rows, nil, func(id int) {
-		panel := ui.Column(c).Width(340).Gap(8)
+		panel := ui.Column(c).Width(340).Gap(editorAppearance.ControlGap)
 		path := fmt.Sprintf("Activities.QuestStateList[%d]", id)
 		draft := a.draft(panel, path)
 		panel.Children(func() {

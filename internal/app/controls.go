@@ -18,7 +18,7 @@ type numberDraft struct {
 // Staged editors pass their own strings and apply them with their existing button.
 func (a *App) numberField(c *ui.Context, label string, value *string) ui.Element {
 	var input ui.Element
-	ui.Field(c, a.T(label), func() { input = ui.TextInput(c, value) })
+	editorField(c, a.T(label), func() { input = ui.TextInput(c, value) })
 	return input
 }
 
@@ -41,14 +41,39 @@ func (a *App) applyBatch(ops ...save.Operation) bool {
 }
 
 func (a *App) twoColumns(c *ui.Context, left, right func()) {
-	ui.Grid(c).Columns(2).Gap(12).Children(func() {
-		ui.Column(c).MinWidth(0).Gap(12).Children(left)
-		ui.Column(c).MinWidth(0).Gap(12).Children(right)
+	a.columns(c, 0, left, right)
+}
+
+func (a *App) columns(c *ui.Context, rightMinimum float32, left, right func()) {
+	ui.Row(c).Gap(editorAppearance.SectionGap).AlignItems(ui.Start).Children(func() {
+		ui.Column(c).Grow(1).Basis(0).MinWidth(0).Gap(editorAppearance.SectionGap).Children(left)
+		ui.Column(c).Grow(1).Basis(0).MinWidth(rightMinimum).Gap(editorAppearance.SectionGap).Children(right)
 	})
 }
 
 func (a *App) section(c *ui.Context, title string, contents func()) {
-	ui.Fieldset(c, a.T(title), contents)
+	a.card(c, a.T(title)).Children(func() {
+		ui.Text(c, a.T(title)).Bold()
+		ui.Column(c).Gap(editorAppearance.ControlGap).Children(contents)
+	})
+}
+
+func (a *App) groupBox(c *ui.Context, title string) ui.Element {
+	return ui.Column(c).Padding(editorAppearance.CardPadding).Gap(editorAppearance.SectionGap).MinWidth(0).Role(ui.RoleGroup).Label(a.T(title))
+}
+
+func (a *App) group(c *ui.Context, title string, contents func()) {
+	a.groupBox(c, title).Children(func() {
+		ui.Text(c, a.T(title)).Bold()
+		ui.Column(c).Gap(editorAppearance.ControlGap).Children(contents)
+	})
+}
+
+// Use MyGo's gallery container composition with the shared editor appearance.
+func (a *App) card(c *ui.Context, label string) ui.Element {
+	t := c.Theme()
+	return ui.Column(c).Padding(editorAppearance.CardPadding).Gap(editorAppearance.SectionGap).Radius(editorAppearance.CardRadius).
+		Background(editorAppearance.Card).Border(1, t.Border).MinWidth(0).Role(ui.RoleGroup).Label(label)
 }
 
 // selection keeps each old list's own search, selection and stable source ID.
@@ -58,7 +83,7 @@ func (a *App) selection(c *ui.Context, key, title string, rows []row, footer fun
 	if s.Selected >= 0 && s.Selected < len(s.Rows) {
 		previousID = s.Rows[s.Selected].ID
 	}
-	ui.Column(c.Key(key)).Fill().Gap(8).Children(func() {
+	ui.Column(c.Key(key)).Fill().Gap(editorAppearance.ControlGap).Children(func() {
 		if title != "" {
 			ui.Text(c, a.T(title))
 		}
@@ -84,7 +109,7 @@ func (a *App) selection(c *ui.Context, key, title string, rows []row, footer fun
 		}
 		s.List.Selected = &s.Selected
 		s.List.Key = func(i int) any { return filtered[i].ID }
-		if ui.List(c, &s.List, len(filtered), func(i int) {
+		if themedList(c, &s.List, len(filtered), func(i int) {
 			r := filtered[i]
 			text := r.Name
 			if r.Value != "" {
@@ -105,17 +130,24 @@ func (a *App) selection(c *ui.Context, key, title string, rows []row, footer fun
 }
 
 func (a *App) editorLayout(c *ui.Context, key, title string, rows []row, footer func(), detail func(int)) {
-	ui.Row(c).Grow(1).Basis(0).MinHeight(0).Gap(12).AlignItems(ui.Stretch).Children(func() {
+	ui.Row(c).Grow(1).Basis(0).MinHeight(0).Gap(editorAppearance.SectionGap).AlignItems(ui.Stretch).Children(func() {
 		width := float32(320)
 		if key == "roster" || key == "inheritance" {
 			width = 264
 		}
+		if key == "roster" {
+			windowWidth, _ := c.Size()
+			width = max(220, width*min(float32(1), windowWidth/1120))
+		}
 		id := -1
-		ui.Column(c).Width(width).MinHeight(0).Children(func() { id = a.selection(c, key, title, rows, footer) })
-		ui.Column(c.Key(id)).Grow(1).MinWidth(0).MinHeight(0).Gap(12).Children(func() {
-			if id >= 0 {
-				detail(id)
-			}
+		a.card(c, a.T(title)).Width(width).MinHeight(0).Children(func() { id = a.selection(c, key, title, rows, footer) })
+		editorTitle := map[string]string{"roster": "Character Editor", "inheritance": "NG+ Roster", "supports": "Support Editor", "ng-supports": "Inherited support rank", "battalions": "Battalion Editor", "quests": "Quest Editor"}[key]
+		a.card(c, a.T(editorTitle)).Grow(1).MinHeight(0).Children(func() {
+			ui.Column(c.Key(id)).Grow(1).Basis(0).MinWidth(0).MinHeight(0).Gap(editorAppearance.SectionGap).Children(func() {
+				if id >= 0 {
+					detail(id)
+				}
+			})
 		})
 	})
 }

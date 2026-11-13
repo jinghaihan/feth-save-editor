@@ -54,7 +54,7 @@ func (a *App) supportPage(c *ui.Context, inherited bool) {
 			value = m["maxPoints"]
 		}
 		points := value.(int64)
-		panel := ui.Column(c).Width(340).Gap(8)
+		panel := ui.Column(c).Width(340).Gap(editorAppearance.ControlGap)
 		draft := ui.Local(panel, "support", func() struct {
 			source int64
 			text   string
@@ -77,7 +77,7 @@ func (a *App) supportPage(c *ui.Context, inherited bool) {
 			ui.Text(c, a.T("Maximum rank:")+" "+entry.MaximumRank)
 			n, _ := strconv.ParseInt(draft.text, 10, 64)
 			rank := a.supportRank(index, n)
-			ui.Field(c, a.T("Rank"), func() {
+			editorField(c, a.T("Rank"), func() {
 				if ui.Select(c, &rank, entry.Ranks).Changed() {
 					for _, v := range a.DB.Catalog["support-ranks"] {
 						if v.Rank == rank {
@@ -135,12 +135,14 @@ func (a *App) inheritancePage(c *ui.Context) {
 		})
 		if *tab == 0 {
 			ranks := m["skillRanks"].([]int)
-			ui.Grid(c).Columns(2).Gap(12).Children(func() {
-				for i := 0; i < 11; i++ {
-					a.selectIndex(c.Key(i), a.gameText(7214+i, fmt.Sprint(i)), ranks[i], skillRanks, func(rank int) {
-						a.apply(save.Operation{"op": "setNgPlusSkillRank", "recordIndex": index, "skill": i, "rank": rank})
-					})
-				}
+			editorForm(c, func() {
+				ui.Grid(c).Columns(2).Gap(editorAppearance.SectionGap).Children(func() {
+					for i := 0; i < 11; i++ {
+						a.selectIndex(c.Key(i), a.gameText(7214+i, fmt.Sprint(i)), ranks[i], skillRanks, func(rank int) {
+							a.apply(save.Operation{"op": "setNgPlusSkillRank", "recordIndex": index, "skill": i, "rank": rank})
+						})
+					}
+				})
 			})
 		} else {
 			search := a.table("inheritance-classes")
@@ -150,7 +152,7 @@ func (a *App) inheritancePage(c *ui.Context) {
 				mastered[id] = true
 			}
 			ui.Scroll(c).Grow(1).MinHeight(0).Children(func() {
-				ui.Grid(c).Columns(3).Gap(8).Children(func() {
+				ui.Grid(c).Columns(3).Gap(editorAppearance.ControlGap).Children(func() {
 					for i := 0; i < 100; i++ {
 						name := a.DB.Name("classes", i)
 						if !strings.Contains(strings.ToLower(fmt.Sprintf("%d %s", i, name)), strings.ToLower(search.Query)) {
@@ -184,7 +186,7 @@ func (a *App) battalionsPage(c *ui.Context) {
 		}
 	}, func(slot int) {
 		ui.Scroll(c).Grow(1).MinHeight(0).Children(func() {
-			panel := ui.Column(c).Width(340).Gap(8)
+			panel := ui.Column(c).Width(340).Gap(editorAppearance.ControlGap)
 			p := fmt.Sprintf("Player.Battalions[%d].", slot)
 			paths := []string{p + "CharacterId", p + "Type", p + "Exp", p + "Stamina", p + "Skill"}
 			equipped, err := a.Save.EquippedBattalionSlot(slot)
@@ -207,8 +209,14 @@ func (a *App) battalionsPage(c *ui.Context) {
 					}
 				}
 				draft.choice(a, c, "Type", p+"Type", types)
-				draft.number(a, c, "Experience", p+"Exp")
-				a.action(c, "Max Level", save.Operation{"op": "maxBattalionLevel", "slot": slot})
+				editorField(c, a.T("Experience"), func() {
+					ui.Row(c).Gap(editorAppearance.ControlGap).AlignItems(ui.Center).Children(func() {
+						text := draft.values[p+"Exp"]
+						ui.TextInput(c, &text).Grow(1).MinWidth(0).Label(a.T("Experience"))
+						draft.values[p+"Exp"] = text
+						a.action(c, "Max Level", save.Operation{"op": "maxBattalionLevel", "slot": slot})
+					})
+				})
 				draft.number(a, c, "Stored Endurance", p+"Stamina")
 				if equipped >= 0 {
 					draft.number(a, c, "Equipped Endurance", currentPath)
@@ -234,20 +242,31 @@ func (a *App) battalionsPage(c *ui.Context) {
 	})
 }
 func (a *App) databasePage(c *ui.Context) {
-	tab := a.tab("database")
-	ui.Tabs(c, tab, a.T("Characters"), a.T("Classes"), a.T("Items"))
-	kind := []string{"characters", "classes", "items"}[*tab]
-	rows := []row{}
-	for _, v := range a.DB.Details[kind] {
-		rows = append(rows, row{v.ID, v.Name, ""})
-	}
-	a.editorLayout(c, "database-"+kind, []string{"Character Database", "Class Database", "Item Database"}[*tab], rows, nil, func(id int) {
-		detail, err := a.DB.Detail(kind, id)
-		if err != nil {
-			ui.Text(c, err.Error())
-			return
+	a.card(c, a.T("Database")).Grow(1).MinHeight(0).Children(func() {
+		tab := a.tab("database")
+		ui.Tabs(c, tab, a.T("Characters"), a.T("Classes"), a.T("Items"))
+		kind := []string{"characters", "classes", "items"}[*tab]
+		rows := []row{}
+		for _, v := range a.DB.Details[kind] {
+			rows = append(rows, row{v.ID, v.Name, ""})
 		}
-		ui.Scroll(c).Grow(1).MinHeight(0).Children(func() { ui.Text(c, strings.ReplaceAll(detail.Details, "\r\n", "\n")) })
+		ui.Row(c).Grow(1).Basis(0).MinHeight(0).Gap(editorAppearance.SectionGap).AlignItems(ui.Stretch).Children(func() {
+			id := -1
+			ui.Column(c).Width(320).MinHeight(0).Children(func() {
+				id = a.selection(c, "database-"+kind, []string{"Character Database", "Class Database", "Item Database"}[*tab], rows, nil)
+			})
+			ui.Scroll(c).Grow(1).MinWidth(0).MinHeight(0).Children(func() {
+				if id < 0 {
+					return
+				}
+				detail, err := a.DB.Detail(kind, id)
+				if err != nil {
+					ui.Text(c, err.Error())
+					return
+				}
+				ui.Text(c, strings.ReplaceAll(detail.Details, "\r\n", "\n"))
+			})
+		})
 	})
 }
 func (a *App) systemPage(c *ui.Context) {
@@ -260,17 +279,17 @@ func (a *App) systemPage(c *ui.Context) {
 		ui.Text(c, err.Error())
 		return
 	}
-	ui.Row(c).Grow(1).Basis(0).MinHeight(0).Gap(12).AlignItems(ui.Stretch).Children(func() {
-		ui.Column(c).Width(320).MinHeight(0).Children(func() {
+	ui.Row(c).Grow(1).Basis(0).MinHeight(0).Gap(editorAppearance.SectionGap).AlignItems(ui.Stretch).Children(func() {
+		a.card(c, a.T("Save Slots")).Width(320).MinHeight(0).Children(func() {
 			ui.Text(c, a.T("Save Slots"))
 			slots := snapshot["slots"].([]any)
 			state := a.table("system-slots")
-			ui.List(c, &state.List, len(slots), func(i int) {
+			themedList(c, &state.List, len(slots), func(i int) {
 				m := slots[i].(map[string]any)
-				ui.Textf(c, "[%02d] %s · %v", i, m["playerName"], m["Playtime"])
+				ui.Textf(c, "[%02d] %s · %v", i, m["playerName"], m["Playtime"]).Padding(7, 10)
 			}).Grow(1).MinHeight(0)
 		})
-		ui.Column(c).Grow(1).MinWidth(0).MinHeight(0).Gap(8).Children(func() {
+		a.card(c, a.T("System Flags")).Grow(1).MinHeight(0).Children(func() {
 			ui.Text(c, a.T("System Flags"))
 			state := a.table("system-flags")
 			ui.SearchField(c, &state.Query).Label(a.T("Search...")).Placeholder(a.T("Search..."))
@@ -282,7 +301,7 @@ func (a *App) systemPage(c *ui.Context) {
 				}
 			}
 			state.List.Key = func(i int) any { return ids[i] }
-			ui.List(c, &state.List, len(ids), func(row int) {
+			themedList(c, &state.List, len(ids), func(row int) {
 				i := ids[row]
 				on, _ := a.System.Flag(i)
 				name := fmt.Sprintf("[%04d] %s", i, a.DB.Name("system-flags", i))

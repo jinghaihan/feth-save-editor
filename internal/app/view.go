@@ -11,8 +11,9 @@ import (
 )
 
 func (a *App) View(c *ui.Context) {
+	c.SetTheme(editorTheme)
 	c = c.Key(a.revision)
-	root := ui.Column(c).Fill()
+	root := ui.Column(c).Fill().Background(editorAppearance.Window)
 	root.Children(func() {
 		selected := 0
 		labels := make([]string, len(pages))
@@ -29,7 +30,7 @@ func (a *App) View(c *ui.Context) {
 			}
 		})
 		ui.Row(c).Grow(1).Basis(0).MinHeight(0).AlignItems(ui.Stretch).Children(func() {
-			ui.Column(c.Key(a.Page)).Grow(1).MinWidth(0).MinHeight(0).Padding(16).Gap(12).Children(func() {
+			ui.Column(c.Key(a.Page)).Grow(1).MinWidth(0).MinHeight(0).Padding(16).Gap(editorAppearance.SectionGap).Children(func() {
 				if a.Save == nil && a.Page != "Database" && a.Page != "System" {
 					ui.Text(c, a.T("Open a save to begin."))
 					return
@@ -109,6 +110,12 @@ func (a *App) input(c *ui.Context, label, path string, lo, hi int64) {
 	})
 }
 func (a *App) choice(c *ui.Context, label string, entries []catalog.Entry, id int, changed func(int)) {
+	editorField(c.Key(label), a.T(label), func() {
+		a.combo(c, entries, id, changed).Label(a.T(label))
+	})
+}
+
+func (a *App) combo(c *ui.Context, entries []catalog.Entry, id int, changed func(int)) ui.Element {
 	labels := make([]string, len(entries))
 	selected := fmt.Sprintf("[%d]", id)
 	counts := map[string]int{}
@@ -125,16 +132,16 @@ func (a *App) choice(c *ui.Context, label string, entries []catalog.Entry, id in
 			selected = labels[i]
 		}
 	}
-	ui.Field(c.Key(label), a.T(label), func() {
-		if ui.Combobox(c, &selected, labels).Changed() {
-			for i, label := range labels {
-				if label == selected {
-					changed(entries[i].ID)
-					break
-				}
+	input := ui.Combobox(c, &selected, labels)
+	if input.Changed() {
+		for i, label := range labels {
+			if label == selected {
+				changed(entries[i].ID)
+				break
 			}
 		}
-	})
+	}
+	return input
 }
 func choiceName(name string) string {
 	if prefix, rest, ok := strings.Cut(name, " - "); ok {
@@ -153,7 +160,7 @@ func (a *App) selectIndex(c *ui.Context, label string, at int, labels []string, 
 	if at >= 0 && at < len(labels) {
 		selected = translated[at]
 	}
-	ui.Field(c.Key(label), a.T(label), func() {
+	editorField(c.Key(label), a.T(label), func() {
 		if ui.Select(c, &selected, translated).Changed() {
 			for i, v := range translated {
 				if v == selected {
@@ -173,7 +180,7 @@ func (a *App) mainPage(c *ui.Context) {
 	ui.Scroll(c).Grow(1).Children(func() {
 		a.twoColumns(c, func() {
 			a.section(c, "Player", func() {
-				ui.Form(c, func() {
+				editorForm(c, func() {
 					name, _ := a.Save.Get("playerName")
 					box := ui.Column(c.Key("playerName"))
 					draft := ui.Local(box, "name", func() numberDraft { return numberDraft{Text: name.(string)} })
@@ -229,14 +236,14 @@ func (a *App) mainPage(c *ui.Context) {
 				})
 			})
 			a.section(c, "Activity Points", func() {
-				ui.Form(c, func() {
+				editorForm(c, func() {
 					for i, f := range []string{"ActivityExplore", "ActivityLesson", "ActivityBattle"} {
 						a.input(c, a.gameText(1025+i, []string{"Explore:", "Lesson:", "Battle:"}[i]), "Activities."+f, 0, 255)
 					}
 				})
 			})
 			a.section(c, "Goddess Statue", func() {
-				ui.Form(c, func() {
+				editorForm(c, func() {
 					for i := 1; i <= 4; i++ {
 						a.input(c, a.gameText(9763+i, fmt.Sprintf("Statue%d:", i)), fmt.Sprintf("Activities.Statue%d", i), 0, 255)
 					}
@@ -244,7 +251,7 @@ func (a *App) mainPage(c *ui.Context) {
 			})
 		}, func() {
 			a.section(c, "Game Values", func() {
-				ui.Form(c, func() {
+				editorForm(c, func() {
 					a.input(c, "Chapter:", "Player.Chapter", 0, 65535)
 					difficulties := make([]string, catalog.Rules.Constants["DIFFICULTY_COUNT"])
 					for i := range difficulties {
@@ -261,7 +268,7 @@ func (a *App) mainPage(c *ui.Context) {
 				})
 			})
 			a.section(c, "Monthly Statistics", func() {
-				ui.Form(c, func() {
+				editorForm(c, func() {
 					fields := []struct {
 						name string
 						id   int
