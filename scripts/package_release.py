@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Package GUI and CLI builds with one shared, self-contained .NET runtime."""
+"""Package the standalone Go GUI and CLI for each desktop platform."""
 
 import argparse
 import filecmp
@@ -18,7 +18,7 @@ WINDOWS_GUI_NAME = "FETH Save Editor.exe"
 
 
 def merge_publishes(gui: Path, cli: Path, destination: Path, rid: str) -> None:
-    """Co-locate both apphosts and retain just one copy of identical runtime files."""
+    """Collect GUI and CLI binaries, keeping matching files only once."""
     for published in (gui, cli):
         for source in published.rglob("*"):
             if not source.is_file():
@@ -49,7 +49,7 @@ def make_macos_app(destination: Path, version: str) -> None:
 
     iconset = contents / "Sothis.iconset"
     iconset.mkdir()
-    portrait = ROOT / "gui/Assets/sothis-portrait.png"
+    portrait = ROOT / "assets/sothis-portrait.png"
     for name, pixels in (
         ("icon_16x16", 16),
         ("icon_16x16@2x", 32),
@@ -143,10 +143,11 @@ def main() -> None:
                 gui_binary = staging / "FethEditor.Gui"
             cli_binary = staging / f"FethEditor.Cli{suffix}"
 
+        shutil.copy2(ROOT / "LICENSE", staging / "LICENSE")
+        shutil.copytree(ROOT / "licenses", staging / "licenses")
         output.parent.mkdir(parents=True, exist_ok=True)
         if args.rid.startswith("osx-"):
-            # Finder's Archive Utility restores the signatures on managed DLLs
-            # from the AppleDouble entries written by ditto.
+            # Keep macOS bundle metadata, signatures and executable permissions.
             subprocess.run(
                 ["ditto", "-c", "-k", "--sequesterRsrc", str(staging), str(output)],
                 check=True,

@@ -1,12 +1,4 @@
-data-unpacker/obj/
-data-unpacker/bin/
 *.user
 dist/
-/core/bin/
-/core/obj/
-/cli/bin/
-/cli/obj/
-/gui/bin/
-/gui/obj/
-/test/bin/
-/test/obj/
+/build/
+__pycache__/

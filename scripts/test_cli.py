@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import shutil
 import struct
 import subprocess
 import tempfile
@@ -20,7 +19,7 @@ def checksum(data: bytes) -> int:
 
 
 def run(cli: Path, *args: str, success: bool = True) -> dict:
-    command = [shutil.which("dotnet") or "dotnet", str(cli)] if cli.suffix == ".dll" else [str(cli)]
+    command = [str(cli)]
     result = subprocess.run([*command, *args], capture_output=True, text=True)
     if (result.returncode == 0) != success:
         raise AssertionError((result.returncode, result.stdout, result.stderr))
