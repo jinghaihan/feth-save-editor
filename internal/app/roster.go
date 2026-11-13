@@ -123,7 +123,9 @@ func (a *App) rosterPage(c *ui.Context) {
 							a.flagRows(c, p+"ClassFlags", 8, func(i int) string { return a.T(a.DB.Name("enmCharacterClassFlags", i)) })
 						})
 						a.group(c, "Adjutant", func() {
-							a.choice(c, "Adjutant", a.DB.Catalog["characters"], int(a.number(p+"AdjutantId")), func(id int) { a.Set(p+"AdjutantId", int64(id)) })
+							a.combo(c, a.DB.Catalog["characters"], int(a.number(p+"AdjutantId")), func(id int) {
+								a.Set(p+"AdjutantId", int64(id))
+							}).Label(a.T("Adjutant"))
 						})
 					})
 				case 4:
