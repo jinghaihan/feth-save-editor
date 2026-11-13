@@ -144,7 +144,7 @@ func (a *App) inheritancePage(c *ui.Context) {
 			})
 		} else {
 			search := a.table("inheritance-classes")
-			ui.SearchField(c, &search.Query).Label(a.T("Search..."))
+			ui.SearchField(c, &search.Query).Label(a.T("Search...")).Placeholder(a.T("Search..."))
 			mastered := map[int]bool{}
 			for _, id := range m["masteredClassIds"].([]int) {
 				mastered[id] = true
@@ -273,7 +273,7 @@ func (a *App) systemPage(c *ui.Context) {
 		ui.Column(c).Grow(1).MinWidth(0).MinHeight(0).Gap(8).Children(func() {
 			ui.Text(c, a.T("System Flags"))
 			state := a.table("system-flags")
-			ui.SearchField(c, &state.Query).Label(a.T("Search..."))
+			ui.SearchField(c, &state.Query).Label(a.T("Search...")).Placeholder(a.T("Search..."))
 			ids := []int{}
 			for i := 0; i < save.SystemFlags; i++ {
 				name := fmt.Sprintf("[%04d] %s", i, a.DB.Name("system-flags", i))

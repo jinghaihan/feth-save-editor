@@ -6,6 +6,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -105,7 +106,7 @@ func TestNumberEntryCommitsOnBlur(t *testing.T) {
 	if err := tt.Click("Money:"); err != nil {
 		t.Fatal(err)
 	}
-	tt.Key(ui.Cmd, ui.KeyA)
+	tt.Key(selectAllModifier(), ui.KeyA)
 	tt.Type("64000")
 	if got := a.number("Player.Money"); got != 0 {
 		t.Fatalf("input committed while typing: %d", got)
@@ -159,7 +160,7 @@ func TestEditingSurvivesSwitchingPage(t *testing.T) {
 	if err := tt.Click("Money:"); err != nil {
 		t.Fatal(err)
 	}
-	tt.Key(ui.Cmd, ui.KeyA)
+	tt.Key(selectAllModifier(), ui.KeyA)
 	tt.Type("73100")
 	if err := tt.Click("Roster"); err != nil {
 		t.Fatal(err)
@@ -178,7 +179,7 @@ func TestStagedInventoryAndSupportEdits(t *testing.T) {
 	if err := tt.Click("Amount"); err != nil {
 		t.Fatal(err)
 	}
-	tt.Key(ui.Cmd, ui.KeyA)
+	tt.Key(selectAllModifier(), ui.KeyA)
 	tt.Type("7")
 	tt.Key(0, ui.KeyTab)
 	if got := a.number("Items[0].Amount"); got != 1 {
@@ -195,7 +196,7 @@ func TestStagedInventoryAndSupportEdits(t *testing.T) {
 	if err := tt.Click("Points"); err != nil {
 		t.Fatal(err)
 	}
-	tt.Key(ui.Cmd, ui.KeyA)
+	tt.Key(selectAllModifier(), ui.KeyA)
 	tt.Type("250")
 	tt.Key(0, ui.KeyTab)
 	if got := a.number("Player.CharacterSupportValues[0]"); got != 0 {
@@ -291,4 +292,11 @@ func TestConfirmationCancelAndCallbacks(t *testing.T) {
 	if called != 1 || a.confirm {
 		t.Fatal("confirmation did not settle once")
 	}
+}
+
+func selectAllModifier() ui.Modifiers {
+	if runtime.GOOS == "darwin" {
+		return ui.Cmd
+	}
+	return ui.Ctrl
 }

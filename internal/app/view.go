@@ -12,7 +12,8 @@ import (
 
 func (a *App) View(c *ui.Context) {
 	c = c.Key(a.revision)
-	ui.Column(c).Fill().Children(func() {
+	root := ui.Column(c).Fill()
+	root.Children(func() {
 		selected := 0
 		labels := make([]string, len(pages))
 		for i, page := range pages {
@@ -61,6 +62,12 @@ func (a *App) View(c *ui.Context) {
 			ui.Text(c, a.Status).Padding(8, 12)
 		}
 	})
+	if files := root.DroppedFiles(); len(files) > 0 {
+		a.flushInput()
+		if err := a.Load(files[0]); err != nil {
+			a.Status = err.Error()
+		}
+	}
 	if ui.AlertDialog(c, &a.confirm, a.T(a.confirmLabel), "", a.T("Cancel"), a.T("Confirm")) == 1 && a.confirmAction != nil {
 		a.confirmAction()
 	}

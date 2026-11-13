@@ -58,7 +58,7 @@ func (a *App) selection(c *ui.Context, key, title string, rows []row, footer fun
 		if title != "" {
 			ui.Text(c, a.T(title))
 		}
-		ui.SearchField(c, &s.Query).Label(a.T("Search..."))
+		ui.SearchField(c, &s.Query).Label(a.T("Search...")).Placeholder(a.T("Search..."))
 		filtered := make([]row, 0, len(rows))
 		for _, r := range rows {
 			if strings.Contains(strings.ToLower(fmt.Sprintf("%d %s %s", r.ID, r.Name, r.Value)), strings.ToLower(s.Query)) {
