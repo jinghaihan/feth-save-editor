@@ -58,10 +58,18 @@ func (a *App) rosterPage(c *ui.Context) {
 						})
 					}, func() {
 						a.section(c, "Equipped Abilities", func() {
+							choices := make([]catalog.Entry, 0, 256)
+							for _, entry := range a.DB.Catalog["abilities"] {
+								if entry.ID >= 0 && entry.ID < 255 {
+									entry.Name = a.DB.Name("abilities", entry.ID)
+									choices = append(choices, entry)
+								}
+							}
+							choices = append(choices, catalog.Entry{ID: 255, Name: "----"})
 							ui.Form(c, func() {
 								for i := 0; i < 5; i++ {
 									path := fmt.Sprintf("%sEquippedAbilities[%d]", p, i)
-									a.choice(c, fmt.Sprint(i+1), a.DB.Catalog["abilities"], int(a.number(path)), func(id int) { a.Set(path, int64(id)) })
+									a.choice(c, fmt.Sprint(i+1), choices, int(a.number(path)), func(id int) { a.Set(path, int64(id)) })
 								}
 							})
 						})
@@ -199,9 +207,10 @@ func (a *App) characterItem(c *ui.Context, slot, itemSlot int) {
 			})
 		})
 		value := float64(a.number(p + "Durability"))
+		maximum := max(value, float64(catalog.Rules.Durability[int(a.number(p+"Id"))]))
 		// Toolbar gives the stock stepper its standard borderless buttons.
 		ui.Toolbar(c, func() {
-			if ui.NumberInput(c, &value, 0, 255, 1).Label(a.T("Durability")).Changed() {
+			if ui.NumberInput(c, &value, 0, maximum, 1).Label(a.T("Durability")).Changed() {
 				a.apply(save.Operation{"op": "setCharacterItem", "slot": slot, "itemSlot": itemSlot, "id": a.number(p + "Id"), "durability": int(value)})
 			}
 		}).Padding(0).Disabled(itemSlot >= count)
