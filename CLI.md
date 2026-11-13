@@ -1,8 +1,8 @@
 # Command-line save editor
 
-`FethEditor.Cli` runs on Windows, macOS, and Linux. Download the matching self-contained release or CI artifact, or build from source with `dotnet build cli/Cli.csproj -c Release`. It accepts version-23 `slotXX` and `auto` saves from Fire Emblem: Three Houses v1.2.0. The separate `inspect-system` and `apply-system` commands accept version-5 or version-7 `system` saves. `suspend` files are not supported.
+`FethEditor.Cli` runs on Windows, macOS, and Linux. Download the matching self-contained release or CI artifact, or build from source with `go build -o build/FethEditor.Cli ./cmd/feth-cli`. It accepts version-23 `slotXX` and `auto` saves from Fire Emblem: Three Houses v1.2.0. The separate `inspect-system` and `apply-system` commands accept version-5 or version-7 `system` saves. `suspend` files are not supported.
 
-Run the examples from the folder containing the CLI. On Linux, replace `FethEditor.Cli.exe` with `./FethEditor.Cli`; in the macOS release ZIP, use `./Cli/FethEditor.Cli` from the extracted folder. Keep the other packaged files alongside it. A source build requires .NET 10; downloads include the runtime. An unsigned macOS download may need local approval in macOS security settings.
+Run the examples from the folder containing the CLI. On Linux, replace `FethEditor.Cli.exe` with `./FethEditor.Cli`; in the macOS release ZIP, use `./Cli/FethEditor.Cli` from the extracted folder. Keep the other packaged files alongside it. A source build requires Go 1.27.3 or later; downloads are standalone Go binaries. An unsigned macOS download may need local approval in macOS security settings.
 
 The CLI patches only named, mapped fields. Unknown bytes are preserved. `inspect` distinguishes current-run data from NG+ journal history. An edited save still needs an in-game test.
 
