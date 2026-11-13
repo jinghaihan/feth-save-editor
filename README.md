@@ -25,23 +25,15 @@ Switch languages from the top menu. The interface and game-data names use the se
 
 ## Get started
 
-For `refactor/mygo`, download the matching `feth-mygo-*` ZIP from the [build workflow](https://github.com/jinghaihan/feth-save-editor/actions/workflows/build.yml?query=branch%3Arefactor%2Fmygo) artifacts. Published releases remain on `main` until the rewrite is merged.
-
 Download the GUI from the [latest release](https://github.com/jinghaihan/feth-save-editor/releases/latest), open a `slotXX` or `auto` save, make your edits, then save a copy to another folder. Keep your original save until you have checked the edited copy in-game. The editor targets Fire Emblem: Three Houses v1.2.0.
-
-To run the MyGo application from source with Go 1.27.3 or later:
-
-```sh
-go run ./cmd/feth-editor
-```
 
 For scripted edits, see the [CLI guide](CLI.md).
 
 ## Credits
 
 - [imouto1994/fe3h-editor](https://github.com/imouto1994/fe3h-editor): the original project this editor was derived from.
-- [egoist/MyGo](https://github.com/egoist/mygo): the desktop UI framework.
-- [SukiUI](https://github.com/kikipoulet/SukiUI): the original C# editor's visual reference for colors, spacing, and card borders.
+- [egoist/MyGo](https://github.com/egoist/mygo)
+- [SukiUI](https://github.com/kikipoulet/SukiUI)
 - [Falo's v1.2.0 Beta1 release](https://gbatemp.net/threads/fire-emblem-three-houses-general-hacking.544144/post-8948080): v1.2.0 save support and game data.
 
 ## License
