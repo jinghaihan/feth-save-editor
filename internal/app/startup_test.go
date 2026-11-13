@@ -138,8 +138,8 @@ func TestLoadingEnablesExistingForms(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	apply, ok := tt.AccessByRole(ui.RoleButton, "Apply Changes")
-	if !ok || apply.Disabled {
+	amount, ok := tt.AccessByRole(ui.RoleTextField, "Amount")
+	if !ok || amount.Disabled {
 		t.Fatal("loading a save did not enable the existing inventory editor")
 	}
 	a.Page = "Main"

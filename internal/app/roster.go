@@ -187,19 +187,11 @@ func (a *App) characterClasses(c *ui.Context, slot int) {
 		}
 		expPath := fmt.Sprintf("%sClassExp[%d]", p, id)
 		levelPath := fmt.Sprintf("%sClassLevel[%d]", p, id)
-		draft := a.draft(panel, expPath, levelPath)
 		panel.Children(func() {
 			a.group(c, "Class Editor", func() {
 				ui.Text(c, a.T("Current class:")+" "+a.DB.Name("classes", int(a.number(p+"Class"))))
-				draft.number(a, c, "Experience", expPath)
-				draft.number(a, c, "Mastery Level (0 or 1)", levelPath)
-				if ui.Button(c, a.T("Set Class Values")).Clicked() {
-					exp, ok := a.parseNumber(draft.values[expPath], "Experience", 0, int64(catalog.ClassExp(id)))
-					level, levelOK := a.parseNumber(draft.values[levelPath], "Mastery", 0, 1)
-					if ok && levelOK {
-						a.applyBatch(save.Operation{"op": "set", "path": expPath, "value": exp}, save.Operation{"op": "set", "path": levelPath, "value": level})
-					}
-				}
+				a.input(c, "Experience", expPath, 0, int64(catalog.ClassExp(id)))
+				a.input(c, "Mastery Level (0 or 1)", levelPath, 0, 1)
 				a.action(c, "Max All Class Experience", save.Operation{"op": "maxClassExp", "slot": slot})
 			})
 		})

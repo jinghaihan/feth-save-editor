@@ -2,7 +2,6 @@ package app
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/egoist/mygo/ui"
@@ -60,21 +59,7 @@ func (a *App) supportPage(c *ui.Context, inherited bool) {
 			}
 		}
 		panel := ui.Column(c).Width(340).Gap(editorAppearance.ControlGap)
-		draft := ui.Local(panel, "support", func() struct {
-			source int64
-			text   string
-		} {
-			return struct {
-				source int64
-				text   string
-			}{points, fmt.Sprint(points)}
-		})
-		if draft.source != points {
-			draft.source, draft.text = points, fmt.Sprint(points)
-		}
-		if a.Save == nil {
-			draft.text = ""
-		}
+
 		panel.Children(func() {
 			title := "Support Editor"
 			if inherited {
@@ -83,8 +68,7 @@ func (a *App) supportPage(c *ui.Context, inherited bool) {
 			ui.Text(c, a.T(title))
 			entry, _ := a.DB.Entry("supports", index)
 			ui.Text(c, a.T("Maximum rank:")+" "+entry.MaximumRank)
-			n, _ := strconv.ParseInt(draft.text, 10, 64)
-			rank := a.supportRank(index, n)
+			rank := a.supportRank(index, points)
 			if a.Save == nil {
 				rank = ""
 			}
@@ -92,31 +76,40 @@ func (a *App) supportPage(c *ui.Context, inherited bool) {
 				if ui.Select(c, &rank, entry.Ranks).Changed() {
 					for _, v := range a.DB.Catalog["support-ranks"] {
 						if v.Rank == rank {
-							draft.text = fmt.Sprint(v.Points)
+							a.flushInput()
+							a.setSupportPoints(index, inherited, int64(v.Points))
 							break
 						}
 					}
 				}
 			})
-			a.numberField(c, "Points", &draft.text)
+			a.editNumber(c, "Points", fmt.Sprintf("%s/%d/points", key, index), func() string {
+				if a.Save == nil {
+					return ""
+				}
+				if !inherited {
+					return a.numberText(fmt.Sprintf("Player.CharacterSupportValues[%d]", index))
+				}
+				supports := a.Save.Inheritance(a.DB)["supports"].([]any)
+				return fmt.Sprint(supports[index].(map[string]any)["maxPoints"])
+			}, 0, 65535, func(n int64) { a.setSupportPoints(index, inherited, n) })
 			maxOp := "maxSupportRank"
 			if inherited {
 				maxOp = "maxNgPlusSupportRank"
 			}
 			if ui.Button(c, a.T("Reach maximum rank")).Disabled(entry.MaximumRank == "None").Clicked() {
+				a.flushInput()
 				a.apply(save.Operation{"op": maxOp, "index": index})
-			}
-			if ui.Button(c, a.T("Set")).Clicked() {
-				if n, ok := a.parseNumber(draft.text, "Points", 0, 65535); ok {
-					if inherited {
-						a.apply(save.Operation{"op": "setNgPlusSupport", "index": index, "points": n})
-					} else {
-						a.Set(fmt.Sprintf("Player.CharacterSupportValues[%d]", index), n)
-					}
-				}
 			}
 		})
 	})
+}
+func (a *App) setSupportPoints(index int, inherited bool, n int64) {
+	if inherited {
+		a.apply(save.Operation{"op": "setNgPlusSupport", "index": index, "points": n})
+	} else {
+		a.Set(fmt.Sprintf("Player.CharacterSupportValues[%d]", index), n)
+	}
 }
 func (a *App) inheritancePage(c *ui.Context) {
 	var characters []any
@@ -138,6 +131,7 @@ func (a *App) inheritancePage(c *ui.Context) {
 			ui.Tabs(c, tab, a.T("Skills"), a.T("Class Mastery"))
 			ui.Spacer(c)
 			if ui.Button(c, a.T("Unlock All")).Clicked() {
+				a.flushInput()
 				if *tab == 0 {
 					ops := make([]save.Operation, 11)
 					for i := range ops {
@@ -212,7 +206,6 @@ func (a *App) battalionsPage(c *ui.Context) {
 		ui.Scroll(c).Grow(1).MinHeight(0).Children(func() {
 			panel := ui.Column(c).Width(340).Gap(editorAppearance.ControlGap)
 			p := fmt.Sprintf("Player.Battalions[%d].", slot)
-			paths := []string{p + "CharacterId", p + "Type", p + "Exp", p + "Stamina", p + "Skill"}
 			equipped := -1
 			if a.Save != nil {
 				var err error
@@ -223,46 +216,31 @@ func (a *App) battalionsPage(c *ui.Context) {
 				}
 			}
 			currentPath := fmt.Sprintf("Characters[%d].data.EquippedBattalion.Stamina", equipped)
-			if equipped >= 0 {
-				paths = append(paths, currentPath)
-			}
-			draft := a.draft(panel, paths...)
+
 			panel.Children(func() {
 				ui.Text(c, a.T("Battalion Editor"))
-				draft.choice(a, c, "Character", p+"CharacterId", a.DB.Catalog["characters"])
+				a.choice(c, "Character", a.DB.Catalog["characters"], int(a.number(p+"CharacterId")), func(id int) { a.Set(p+"CharacterId", int64(id)) })
 				types := append([]catalog.Entry(nil), a.DB.Catalog["battalions"]...)
 				for i := range types {
 					if types[i].ID == -1 {
 						types[i].ID = 200
 					}
 				}
-				draft.choice(a, c, "Type", p+"Type", types)
-				editorField(c, a.T("Experience"), func() {
-					ui.Row(c).Gap(editorAppearance.ControlGap).AlignItems(ui.Center).Children(func() {
-						text := draft.values[p+"Exp"]
-						ui.TextInput(c, &text).Grow(1).MinWidth(0).Label(a.T("Experience"))
-						draft.values[p+"Exp"] = text
-						a.action(c, "Max Level", save.Operation{"op": "maxBattalionLevel", "slot": slot})
-					})
+				a.choice(c, "Type", types, int(a.number(p+"Type")), func(id int) { a.Set(p+"Type", int64(id)) })
+				ui.Row(c).Gap(editorAppearance.ControlGap).AlignItems(ui.End).Children(func() {
+					ui.Column(c).Grow(1).MinWidth(0).Children(func() { a.input(c, "Experience", p+"Exp", 0, 4294967295) })
+					a.action(c, "Max Level", save.Operation{"op": "maxBattalionLevel", "slot": slot})
 				})
-				draft.number(a, c, "Stored Endurance", p+"Stamina")
+				a.input(c, "Stored Endurance", p+"Stamina", 0, 4294967295)
 				if equipped >= 0 {
-					draft.number(a, c, "Equipped Endurance", currentPath)
+					a.inputWith(c, "Equipped Endurance", currentPath, 0, 4294967295, func(n int64) {
+						a.apply(save.Operation{"op": "setBattalionEnduranceValues", "slot": slot, "storedEndurance": a.number(p + "Stamina"), "equippedEndurance": n})
+					})
 				}
 				a.action(c, "Replenish", save.Operation{"op": "replenishBattalion", "slot": slot})
-				draft.choice(a, c, "Skill", p+"Skill", a.DB.Catalog["battalion-skills"])
-				if ui.Button(c, a.T("Apply Changes")).Clicked() {
-					if ops, ok := draft.operations(a, paths...); ok {
-						// Use the existing linked-endurance operation before changing ownership.
-						endurance := save.Operation{"op": "setBattalionEnduranceValues", "slot": slot, "storedEndurance": ops[3]["value"]}
-						if equipped >= 0 {
-							endurance["equippedEndurance"] = ops[len(ops)-1]["value"]
-						}
-						batch := append([]save.Operation{endurance}, ops[:3]...)
-						a.applyBatch(append(batch, ops[4])...)
-					}
-				}
+				a.choice(c, "Skill", a.DB.Catalog["battalion-skills"], int(a.number(p+"Skill")), func(id int) { a.Set(p+"Skill", int64(id)) })
 				if ui.Button(c, a.T("Delete")).Disabled(a.number(p+"Type") >= 200).Clicked() {
+					a.flushInput()
 					a.ask("Delete this battalion?", func() { a.apply(save.Operation{"op": "deleteBattalion", "slot": slot}) })
 				}
 			})

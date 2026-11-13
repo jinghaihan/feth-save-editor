@@ -32,7 +32,6 @@ func (a *App) itemsPage(c *ui.Context) {
 				return
 			}
 			p := fmt.Sprintf("Items[%d].", selected)
-			draft := a.draft(panel, p+"Id", p+"Durability", p+"Amount")
 			panel.Children(func() {
 				a.scrollingSection(c, "Item Editor", func() {
 					if a.Save != nil {
@@ -40,24 +39,19 @@ func (a *App) itemsPage(c *ui.Context) {
 					} else {
 						ui.Text(c, a.T("Slot"))
 					}
-					draft.choice(a, c, "Item", p+"Id", a.DB.Catalog["items"])
-					draft.number(a, c, "Durability", p+"Durability")
-					draft.number(a, c, "Amount", p+"Amount")
-					if ui.Button(c, a.T("Apply Changes")).Clicked() {
-						if draft.values[p+"Id"] == "-1" {
-							draft.values[p+"Durability"] = "0"
-							draft.values[p+"Amount"] = "0"
+					a.choice(c, "Item", a.DB.Catalog["items"], int(a.number(p+"Id")), func(id int) {
+						ops := []save.Operation{{"op": "set", "path": p + "Id", "value": id}}
+						if id == -1 {
+							ops = append(ops, save.Operation{"op": "set", "path": p + "Durability", "value": 0}, save.Operation{"op": "set", "path": p + "Amount", "value": 0})
 						}
-						if ops, ok := draft.operations(a, p+"Id", p+"Durability", p+"Amount"); ok {
-							ops = append(ops, save.Operation{"op": "sortItems"})
-							if a.applyBatch(ops...) {
-								a.table("items-items").Selected = 0
-							}
-						}
-					}
+						a.applyBatch(ops...)
+					})
+					a.input(c, "Durability", p+"Durability", 0, 4294967295)
+					a.input(c, "Amount", p+"Amount", 0, 4294967295)
 				})
 				a.scrollingSection(c, "Item Tools", func() {
 					if ui.Button(c, a.T("Sort Items")).Clicked() {
+						a.flushInput()
 						a.apply(save.Operation{"op": "sortItems"})
 						a.table("items-items").Selected = 0
 					}
@@ -65,6 +59,7 @@ func (a *App) itemsPage(c *ui.Context) {
 					mode := a.tab("durability-mode")
 					a.selectIndex(c, "Set Durability", *mode, []string{"Normal maximum", "100 (infinite)", "Weapons 100, other maximum"}, func(i int) { *mode = i })
 					if ui.Button(c, a.T("Apply to Inventory")).Clicked() {
+						a.flushInput()
 						a.apply(save.Operation{"op": "inventoryDurability", "mode": []string{"normal", "unlimited", "weapons-unlimited"}[*mode]})
 					}
 				})
@@ -112,15 +107,7 @@ func (a *App) smallInventory(c *ui.Context, kind string) {
 	if kind == "gifts" {
 		path = fmt.Sprintf("gifts[%d]", id)
 	}
-	draft := a.draft(panel, path)
-	panel.Children(func() {
-		draft.number(a, c, "Amount", path)
-		if ui.Button(c, a.T("Set Selected Amount")).Clicked() {
-			if ops, ok := draft.operations(a, path); ok {
-				a.applyBatch(ops...)
-			}
-		}
-	})
+	panel.Children(func() { a.input(c, "Amount", path, 0, 4294967295) })
 }
 
 func (a *App) questsPage(c *ui.Context) {
@@ -135,16 +122,9 @@ func (a *App) questsPage(c *ui.Context) {
 	a.editorLayout(c, "quests", "Quest List", rows, nil, func(id int) {
 		panel := ui.Column(c).Width(340).Gap(editorAppearance.ControlGap)
 		path := fmt.Sprintf("Activities.QuestStateList[%d]", id)
-		draft := a.draft(panel, path)
 		panel.Children(func() {
 			ui.Text(c, a.T("Quest Editor"))
-			at, _ := strconv.Atoi(draft.values[path])
-			a.selectIndex(c, "Quest State", at, []string{"Unavailable", "Available", "Active", "Unk_0x03", "Finished1", "Unk_0x05", "Finished2"}, func(i int) { draft.values[path] = strconv.Itoa(i) })
-			if ui.Button(c, a.T("Set State")).Clicked() {
-				if ops, ok := draft.operations(a, path); ok {
-					a.applyBatch(ops...)
-				}
-			}
+			a.selectIndex(c, "Quest State", int(a.number(path)), []string{"Unavailable", "Available", "Active", "Unk_0x03", "Finished1", "Unk_0x05", "Finished2"}, func(i int) { a.Set(path, int64(i)) })
 		})
 	})
 }

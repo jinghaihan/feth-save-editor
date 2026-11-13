@@ -343,15 +343,15 @@ func TestRosterActionAlignment(t *testing.T) {
 		a.Page = "Roster"
 		*a.tab("roster") = 3
 		tt := ui.NewTester(a.View, size[0], size[1])
-		set, ok := tt.AccessByRole(ui.RoleButton, "Set Class Values")
+		input, ok := tt.AccessByRole(ui.RoleTextField, "Experience")
 		if !ok {
-			t.Fatal("missing class action")
+			t.Fatal("missing class experience input")
 		}
 		maxAll, ok := tt.AccessByRole(ui.RoleButton, "Max All Class Experience")
 		if !ok {
 			t.Fatal("missing max action")
 		}
-		if set.Bounds.X != maxAll.Bounds.X || set.Bounds.W != maxAll.Bounds.W {
+		if input.Bounds.X != maxAll.Bounds.X || input.Bounds.W != maxAll.Bounds.W {
 			t.Fatal("class actions have different column edges")
 		}
 		for _, tab := range []int{5, 6} {

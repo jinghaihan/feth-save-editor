@@ -14,8 +14,7 @@ type numberDraft struct {
 	Focused bool
 }
 
-// numberField retains the old editor's text-entry and commit-on-blur behavior.
-// Staged editors pass their own strings and apply them with their existing button.
+// numberField uses MyGo's standard text input for numeric entry.
 func (a *App) numberField(c *ui.Context, label string, value *string) ui.Element {
 	var input ui.Element
 	editorField(c, a.T(label), func() { input = ui.TextInput(c, value) })

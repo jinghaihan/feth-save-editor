@@ -70,21 +70,27 @@ func (a *App) View(c *ui.Context) {
 	}
 }
 func (a *App) input(c *ui.Context, label, path string, lo, hi int64) {
+	a.inputWith(c, label, path, lo, hi, func(value int64) { a.Set(path, value) })
+}
+func (a *App) inputWith(c *ui.Context, label, path string, lo, hi int64, update func(int64)) {
 	if a.Save != nil {
 		if minValue, maxValue, err := a.Save.NumberRange(path); err == nil {
 			lo = max(lo, minValue)
 			hi = min(hi, maxValue)
 		}
 	}
+	a.editNumber(c, label, path, func() string { return a.numberText(path) }, lo, hi, update)
+}
+func (a *App) editNumber(c *ui.Context, label, key string, value func() string, lo, hi int64, update func(int64)) {
 	opened := a.Save
-	field := ui.Column(c.Key(path))
-	draft := ui.Local(field, "number", func() numberDraft { return numberDraft{Text: a.numberText(path)} })
+	field := ui.Column(c.Key(key))
+	draft := ui.Local(field, "number", func() numberDraft { return numberDraft{Text: value()} })
 	commit := func() {
 		if opened != nil && a.Save == opened {
-			if value, ok := a.parseNumber(draft.Text, label, lo, hi); ok {
-				a.Set(path, value)
+			if n, ok := a.parseNumber(draft.Text, label, lo, hi); ok {
+				update(n)
 			}
-			draft.Text = a.numberText(path)
+			draft.Text = value()
 		}
 		draft.Focused = false
 	}
@@ -96,10 +102,10 @@ func (a *App) input(c *ui.Context, label, path string, lo, hi int64) {
 	field.Children(func() {
 		input := a.numberField(c, label, &draft.Text)
 		focused := input.Focused()
-		if draft.Focused && !focused || input.Shortcut(0, ui.KeyEnter) {
+		if draft.Focused && !focused || input.Submitted() {
 			commit()
 		} else if !focused {
-			draft.Text = a.numberText(path)
+			draft.Text = value()
 		}
 		draft.Focused = focused
 		if focused {
@@ -137,6 +143,7 @@ func (a *App) combo(c *ui.Context, entries []catalog.Entry, id int, changed func
 	if input.Changed() {
 		for i, label := range labels {
 			if label == selected {
+				a.flushInput()
 				changed(entries[i].ID)
 				break
 			}
@@ -168,6 +175,7 @@ func (a *App) selectIndex(c *ui.Context, label string, at int, labels []string, 
 		if ui.Select(c, &selected, translated).Changed() {
 			for i, v := range translated {
 				if v == selected {
+					a.flushInput()
 					changed(i)
 					break
 				}
@@ -177,6 +185,7 @@ func (a *App) selectIndex(c *ui.Context, label string, at int, labels []string, 
 }
 func (a *App) action(c *ui.Context, label string, op save.Operation) {
 	if ui.Button(c.Key(label), a.T(label)).Clicked() {
+		a.flushInput()
 		a.apply(op)
 	}
 }
@@ -208,7 +217,7 @@ func (a *App) mainPage(c *ui.Context) {
 						box.Children(func() {
 							input := a.numberField(c, "Player Name:", &draft.Text)
 							focused := input.Focused()
-							if draft.Focused && !focused || input.Shortcut(0, ui.KeyEnter) {
+							if draft.Focused && !focused || input.Submitted() {
 								commit()
 							} else if !focused {
 								draft.Text = name

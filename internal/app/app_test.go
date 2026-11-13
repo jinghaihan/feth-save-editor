@@ -170,7 +170,7 @@ func TestEditingSurvivesSwitchingPage(t *testing.T) {
 	}
 }
 
-func TestStagedInventoryAndSupportEdits(t *testing.T) {
+func TestImmediateInventoryAndSupportEdits(t *testing.T) {
 	a := fixture(t)
 	a.Set("Items[0].Id", 1)
 	a.Set("Items[0].Amount", 1)
@@ -182,14 +182,8 @@ func TestStagedInventoryAndSupportEdits(t *testing.T) {
 	tt.Key(selectAllModifier(), ui.KeyA)
 	tt.Type("7")
 	tt.Key(0, ui.KeyTab)
-	if got := a.number("Items[0].Amount"); got != 1 {
-		t.Fatalf("staged inventory was applied early: %d", got)
-	}
-	if err := tt.Click("Apply Changes"); err != nil {
-		t.Fatal(err)
-	}
 	if got := a.number("Items[0].Amount"); got != 7 {
-		t.Fatalf("inventory apply failed: %d %s", got, a.Status)
+		t.Fatalf("inventory did not update on blur: %d %s", got, a.Status)
 	}
 	a.Page = "Support"
 	tt.Frame()
@@ -199,14 +193,8 @@ func TestStagedInventoryAndSupportEdits(t *testing.T) {
 	tt.Key(selectAllModifier(), ui.KeyA)
 	tt.Type("250")
 	tt.Key(0, ui.KeyTab)
-	if got := a.number("Player.CharacterSupportValues[0]"); got != 0 {
-		t.Fatal("support was applied before Set")
-	}
-	if err := tt.Click("Set"); err != nil {
-		t.Fatal(err)
-	}
 	if got := a.number("Player.CharacterSupportValues[0]"); got != 250 {
-		t.Fatalf("support apply failed: %d %s", got, a.Status)
+		t.Fatalf("support did not update on blur: %d %s", got, a.Status)
 	}
 }
 
