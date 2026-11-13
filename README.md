@@ -6,7 +6,12 @@
 
 Edit Fire Emblem: Three Houses saves, including inherited New Game+ progress.
 
-![Roster editor](docs/roster.png)
+<table>
+  <tr>
+    <td width="50%"><img src="docs/roster.png" alt="Roster editor, light appearance"></td>
+    <td width="50%"><img src="docs/items.png" alt="Inventory editor, dark appearance"></td>
+  </tr>
+</table>
 
 ## Features
 
@@ -21,7 +26,7 @@ Edit Fire Emblem: Three Houses saves, including inherited New Game+ progress.
 - **NG+ Support:** Edit inherited support ranks and points separately from the current run, or raise every pair to its available maximum.
 - **System:** Inspect save-slot summaries and edit unlock flags in the system save found alongside the selected slot.
 
-Switch languages from the top menu. The interface and game-data names use the selected language where translations are available.
+Switch languages from the top menu. The interface and game-data names use the selected language where translations are available. Light and dark appearance follow your system settings.
 
 ## Get started
 
