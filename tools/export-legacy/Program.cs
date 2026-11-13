@@ -72,6 +72,11 @@ foreach (var language in Enum.GetValues<enmLanguage>()) {
             var entry=Enum.GetName(type,Enum.ToObject(type,1u<<id));
             return entry==null ? $"Bit {id}" : type.GetField(entry)?.GetCustomAttribute<System.ComponentModel.DescriptionAttribute>()?.Description ?? entry;
         });
+    names["ui"] = new[]{1025,1026,1027,1212,405,402,401,555,1860,3696,1820}
+        .Concat(Enumerable.Range(373,Database.DIFFICULTY_COUNT)).Concat(Enumerable.Range(381,Database.GAMESTYLE_COUNT))
+        .ToDictionary(id=>id,id=>Safe(()=>Database.GetString(id,1)));
+    foreach(var id in Enumerable.Range(9764,4).Concat(Enumerable.Range(7214,11)))
+        names["ui"][id]=Safe(()=>Database.GetString(id));
     Write(language.ToString(), new { catalog, details, strings, names });
 }
 Database.Init(enmLanguage.en_u);
