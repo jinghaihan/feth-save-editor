@@ -25,6 +25,8 @@ Switch languages from the top menu. The interface and game-data names use the se
 
 ## Get started
 
+For `refactor/mygo`, download the matching `feth-mygo-*` ZIP from the [build workflow](https://github.com/jinghaihan/feth-save-editor/actions/workflows/build.yml?query=branch%3Arefactor%2Fmygo) artifacts. Published releases remain on `main` until the rewrite is merged.
+
 Download the GUI from the [latest release](https://github.com/jinghaihan/feth-save-editor/releases/latest), open a `slotXX` or `auto` save, make your edits, then save a copy to another folder. Keep your original save until you have checked the edited copy in-game. The editor targets Fire Emblem: Three Houses v1.2.0.
 
 To run the MyGo application from source with Go 1.27.3 or later:
