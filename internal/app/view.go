@@ -23,7 +23,8 @@ func (a *App) View(c *ui.Context) {
 				selected = i
 			}
 		}
-		ui.ScrollHorizontal(c).PaddingX(16).Children(func() {
+		// MyGo draws the tab underline Space(1.5) inside its container.
+		ui.ScrollHorizontal(c).PaddingX(16 - c.Theme().Space(1.5)).Children(func() {
 			if ui.Tabs(c, &selected, labels...).Changed() {
 				a.flushInput()
 				a.Page = pages[selected]
