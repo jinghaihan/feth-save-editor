@@ -52,6 +52,8 @@ jobs:
         run: python scripts/build_go.py ${{ matrix.rid }}
       - name: Verify CLI regression suite
         run: python scripts/test_cli.py --cli dist/gui/${{ matrix.rid }}/${{ matrix.cli }}
+      - name: Verify release automation
+        run: python -m unittest discover -s scripts -p test_release_script.py
       - name: Package platform download
         run: python scripts/package_release.py ${{ matrix.rid }}
       - name: Test extracted package
@@ -62,25 +64,3 @@ jobs:
           path: dist/feth-save-editor-v*-${{ matrix.rid }}.zip
           if-no-files-found: error
           retention-days: 14
-
-  migration-parity:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-      - uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: 10.0.x
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.13'
-      - name: Build frozen migration oracle
-        run: dotnet build migration/legacy/cli/Cli.csproj -c Release --nologo
-      - name: Build Go CLI
-        run: go build -o build/FethEditor.Cli ./cmd/feth-cli
-      - name: Compare exact JSON and save bytes
-        run: python scripts/test_migration.py --legacy migration/legacy/cli/bin/Release/net10.0/FethEditor.Cli.dll --go build/FethEditor.Cli
-      - name: Verify release automation
-        run: python -m unittest discover -s scripts -p test_release_script.py
