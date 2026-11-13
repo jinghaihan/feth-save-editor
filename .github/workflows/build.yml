@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [main]
+    branches: [main, refactor/mygo]
   pull_request:
   workflow_dispatch:
 
@@ -10,107 +10,72 @@ permissions:
   contents: read
 
 jobs:
-  gui:
+  desktop:
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: windows-2025
             rid: win-x64
+            cli: FethEditor.Cli.exe
           - os: macos-15
             rid: osx-arm64
+            cli: FethEditor.Cli
           - os: macos-15-intel
             rid: osx-x64
+            cli: FethEditor.Cli
           - os: ubuntu-24.04
             rid: linux-x64
+            cli: FethEditor.Cli
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
-
-      - uses: actions/setup-dotnet@v6
+      - uses: actions/setup-go@v6
         with:
-          dotnet-version: 10.0.x
-
-      - name: Build GUI
-        run: dotnet build gui/FethEditor.Gui.csproj -c Release --nologo
-
-      - name: Render GUI smoke test
-        run: dotnet run --project test/Gui.Smoke.csproj -c Release
-
-      - name: Publish GUI and CLI with a shared trimmed runtime
-        run: dotnet publish gui/FethEditor.Gui.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=false -o dist/gui/${{ matrix.rid }}
-
+          go-version-file: go.mod
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Check formatting
+        shell: bash
+        run: test -z "$(gofmt -l cmd internal)"
+      - name: Vet and test
+        run: go vet ./...
+      - name: Verify save editing and UI input
+        run: go test -race ./...
+      - name: Build GUI and CLI
+        run: python scripts/build_go.py ${{ matrix.rid }}
+      - name: Verify CLI regression suite
+        run: python scripts/test_cli.py --cli dist/gui/${{ matrix.rid }}/${{ matrix.cli }}
+      - name: Package platform download
+        run: python scripts/package_release.py ${{ matrix.rid }}
+      - name: Test extracted package
+        run: python scripts/test_release_package.py ${{ matrix.rid }}
       - uses: actions/upload-artifact@v7
         with:
-          name: feth-gui-${{ matrix.rid }}
-          path: dist/gui/${{ matrix.rid }}/
+          name: feth-mygo-${{ matrix.rid }}
+          path: dist/feth-save-editor-v*-${{ matrix.rid }}.zip
           if-no-files-found: error
           retention-days: 14
 
-  cli:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-2025
-            rid: win-x64
-            executable: FethEditor.Cli.exe
-          - os: macos-15
-            rid: osx-arm64
-            executable: FethEditor.Cli
-          - os: macos-15-intel
-            rid: osx-x64
-            executable: FethEditor.Cli
-          - os: ubuntu-24.04
-            rid: linux-x64
-            executable: FethEditor.Cli
-    runs-on: ${{ matrix.os }}
+  migration-parity:
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
-
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
-
-      - name: Build CLI
-        run: dotnet build cli/Cli.csproj -c Release --nologo
-
-      - name: Verify save editing
-        run: python scripts/test_cli.py --cli cli/bin/Release/net10.0/${{ matrix.executable }}
-
-  package:
-    needs: [gui, cli]
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-2025
-            rid: win-x64
-          - os: macos-15
-            rid: osx-arm64
-          - os: macos-15-intel
-            rid: osx-x64
-          - os: ubuntu-24.04
-            rid: linux-x64
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.13'
-
-      - uses: actions/download-artifact@v8
-        with:
-          name: feth-gui-${{ matrix.rid }}
-          path: dist/gui/${{ matrix.rid }}
-
-      - name: Package shared runtime
-        run: python scripts/package_release.py ${{ matrix.rid }}
-
-      - name: Test extracted release ZIP
-        run: python scripts/test_release_package.py ${{ matrix.rid }}
+      - name: Build frozen migration oracle
+        run: dotnet build migration/legacy/cli/Cli.csproj -c Release --nologo
+      - name: Build Go CLI
+        run: go build -o build/FethEditor.Cli ./cmd/feth-cli
+      - name: Compare exact JSON and save bytes
+        run: python scripts/test_migration.py --legacy migration/legacy/cli/bin/Release/net10.0/FethEditor.Cli.dll --go build/FethEditor.Cli
+      - name: Verify release automation
+        run: python -m unittest discover -s scripts -p test_release_script.py
