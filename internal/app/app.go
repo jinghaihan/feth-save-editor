@@ -194,6 +194,9 @@ func (a *App) installFiles(path string, files loadedFiles) error {
 	if !files.save.ChecksumValid {
 		a.Status = a.T("Warning: save checksum does not match. Saving an edited copy will repair it.")
 	}
+	if a.win != nil {
+		a.menu()
+	}
 	return nil
 }
 func (a *App) post(fn func()) {
@@ -324,12 +327,13 @@ func (a *App) storePreferences() {
 	}
 }
 func canonicalLanguage(code string) string { return strings.ToLower(strings.TrimSpace(code)) }
-func (a *App) menu() {
-	mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
+func (a *App) menu()                       { mygo.App.SetMenu(mygo.NewMenu(a.menuItems())) }
+func (a *App) menuItems() []*mygo.MenuItem {
+	return []*mygo.MenuItem{
 		{Role: mygo.RoleAppMenu},
 		{Label: a.T("File"), Submenu: []*mygo.MenuItem{
 			{Label: a.T("Open Save..."), Accelerator: "CmdOrCtrl+O", Click: func(*mygo.MenuItem, *mygo.Window) { a.open() }},
-			{Label: a.T("Save Copy..."), Accelerator: "CmdOrCtrl+Shift+S", Click: func(*mygo.MenuItem, *mygo.Window) { a.saveCopy() }},
+			{Label: a.T("Save Copy..."), Disabled: a.Save == nil, Accelerator: "CmdOrCtrl+Shift+S", Click: func(*mygo.MenuItem, *mygo.Window) { a.saveCopy() }},
 			{Label: a.T("Exit"), Accelerator: "CmdOrCtrl+Q", Click: func(*mygo.MenuItem, *mygo.Window) { mygo.App.Quit() }},
 		}},
 		{Label: a.T("Language"), Submenu: a.languageMenu()},
@@ -337,7 +341,7 @@ func (a *App) menu() {
 		{Label: a.T("Help"), Submenu: []*mygo.MenuItem{{Label: a.T("About"), Click: func(*mygo.MenuItem, *mygo.Window) {
 			go mygo.Dialog.Message(mygo.MessageOptions{Parent: a.win, Message: "FETH Save Editor " + Version, Detail: "Based on fe3h-editor by imouto1994. Game data and v1.2.0 support by Falo. UI built with MyGo.", Buttons: []string{"OK"}})
 		}}}},
-	}))
+	}
 }
 func (a *App) languageMenu() []*mygo.MenuItem {
 	items := make([]*mygo.MenuItem, len(languageCodes))

@@ -126,3 +126,13 @@ func TestLoadingFilesDoesNotReplaceStateOnReadFailure(t *testing.T) {
 		t.Fatal("file installation changed save data")
 	}
 }
+func TestSaveMenuFollowsLoadedState(t *testing.T) {
+	a := New()
+	if !a.menuItems()[1].Submenu[1].Disabled {
+		t.Fatal("Save Copy is enabled without a save")
+	}
+	a = fixture(t)
+	if a.menuItems()[1].Submenu[1].Disabled {
+		t.Fatal("Save Copy stays disabled after loading")
+	}
+}
