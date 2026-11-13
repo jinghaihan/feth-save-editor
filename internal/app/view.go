@@ -23,7 +23,7 @@ func (a *App) View(c *ui.Context) {
 				selected = i
 			}
 		}
-		ui.ScrollHorizontal(c).Children(func() {
+		ui.ScrollHorizontal(c).PaddingX(16).Children(func() {
 			if ui.Tabs(c, &selected, labels...).Changed() {
 				a.flushInput()
 				a.Page = pages[selected]
