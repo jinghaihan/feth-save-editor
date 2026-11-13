@@ -257,22 +257,27 @@ func TestCharacterHeaderAndItemRows(t *testing.T) {
 func TestLegacyAppearanceLayers(t *testing.T) {
 	for _, dark := range []bool{false, true} {
 		a := fixture(t)
+		a.dark = dark
 		tt := ui.NewTesterWith(a.View, 1120, 780, ui.TesterOptions{Dark: dark})
-		if got := tt.Image().RGBAAt(0, 779); got.R != 231 || got.G != 231 || got.B != 231 {
+		background, cardFill, surface := ui.Hex("#e7e7e7"), ui.Hex("#f2f2f2"), ui.Hex("#f9f9f9")
+		if dark {
+			background, cardFill, surface = ui.DarkTheme().Background, ui.Hex("#222225"), ui.DarkTheme().Surface
+		}
+		if got := tt.Image().RGBAAt(0, 779); got.R != background.R || got.G != background.G || got.B != background.B {
 			t.Fatalf("window background changed: %v", got)
 		}
 		card, ok := tt.AccessByRole(ui.RoleGroup, "Player")
 		if !ok {
 			t.Fatal("player card missing")
 		}
-		if got := tt.Image().RGBAAt(int(card.Bounds.X+8), int(card.Bounds.Y+card.Bounds.H/2)); got.R != 242 || got.G != 242 || got.B != 242 {
+		if got := tt.Image().RGBAAt(int(card.Bounds.X+8), int(card.Bounds.Y+card.Bounds.H/2)); got.R != cardFill.R || got.G != cardFill.G || got.B != cardFill.B {
 			t.Fatalf("card background changed: %v", got)
 		}
 		input, ok := tt.AccessByRole(ui.RoleTextField, "Money:")
 		if !ok {
 			t.Fatal("money input missing")
 		}
-		if got := tt.Image().RGBAAt(int(input.Bounds.X+input.Bounds.W-12), int(input.Bounds.Y+8)); got.R != 249 || got.G != 249 || got.B != 249 {
+		if got := tt.Image().RGBAAt(int(input.Bounds.X+input.Bounds.W-12), int(input.Bounds.Y+8)); got.R != surface.R || got.G != surface.G || got.B != surface.B {
 			t.Fatalf("control background changed: %v", got)
 		}
 	}
@@ -387,7 +392,8 @@ func TestSystemCheckboxUsesControlAccent(t *testing.T) {
 		for y := int(node.Bounds.Y); y < int(node.Bounds.Y+node.Bounds.H); y++ {
 			for x := int(node.Bounds.X); x < int(node.Bounds.X+16); x++ {
 				p := tt.Image().RGBAAt(x, y)
-				if p.R == 0 && p.G == 61 && p.B == 255 {
+				accent := a.currentTheme().Accent
+				if p.R == accent.R && p.G == accent.G && p.B == accent.B {
 					pixels++
 				}
 			}

@@ -12,13 +12,6 @@ func makeEditorTheme(dark bool) *ui.Theme {
 	t := ui.LightTheme()
 	if dark {
 		t = ui.DarkTheme()
-		t.Background = ui.Hex("#1d1923")
-		t.Surface = ui.Hex("#332c3d")
-		t.SurfaceHover = ui.Hex("#40364c")
-		t.SurfacePressed = ui.Hex("#4a3e57")
-		t.Border = ui.Hex("#51455f")
-		t.Text = ui.Hex("#f0eade")
-		t.TextMuted = ui.Hex("#b7adbf")
 		t.Accent = ui.Hex("#bda4d8")
 		t.AccentHover = ui.Hex("#ccb6e2")
 		t.AccentPressed = ui.Hex("#ac91cb")
@@ -26,13 +19,13 @@ func makeEditorTheme(dark bool) *ui.Theme {
 		t.Selection = ui.RGBA(189, 164, 216, 0.30)
 		t.Focus = ui.RGBA(189, 164, 216, 0.75)
 	} else {
-		t.Background = ui.Hex("#e8e4de")
-		t.Surface = ui.Hex("#fcf9f2")
-		t.SurfaceHover = ui.Hex("#eee7ed")
-		t.SurfacePressed = ui.Hex("#e0d5e6")
-		t.Border = ui.Hex("#d3cad8")
-		t.Text = ui.Hex("#302a37")
-		t.TextMuted = ui.Hex("#746a7e")
+		t.Background = ui.Hex("#e7e7e7")
+		t.Surface = ui.Hex("#f9f9f9")
+		t.SurfaceHover = ui.Hex("#ececec")
+		t.SurfacePressed = ui.Hex("#dfdfdf")
+		t.Border = ui.Hex("#e2e2e2")
+		t.Text = ui.Hex("#222222")
+		t.TextMuted = ui.Hex("#7f7f7f")
 		t.Accent = ui.Hex("#70538e")
 		t.AccentHover = ui.Hex("#62457f")
 		t.AccentPressed = ui.Hex("#52376e")
@@ -56,9 +49,9 @@ func (a *App) currentTheme() *ui.Theme {
 }
 func cardColor(c *ui.Context) ui.Color {
 	if c.Theme().Dark {
-		return ui.Hex("#292331")
+		return ui.Hex("#222225")
 	}
-	return ui.Hex("#f4f0e8")
+	return ui.Hex("#f2f2f2")
 }
 func themedList(c *ui.Context, state *ui.ListState, count int, row func(int)) ui.Element {
 	t := *c.Theme()
