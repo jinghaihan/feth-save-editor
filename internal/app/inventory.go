@@ -21,47 +21,22 @@ func (a *App) itemsPage(c *ui.Context) {
 			p := fmt.Sprintf("Items[%d].", i)
 			rows[i] = row{i, a.DB.Name("items", int(a.number(p+"Id"))), fmt.Sprintf("%d / %d", a.number(p+"Durability"), a.number(p+"Amount"))}
 		}
-		selected := -1
-		a.card(c, a.T("Item List")).Width(listWidth).MinHeight(0).Children(func() { selected = a.selection(c, "items-items", "Item List", rows, nil) })
-		ui.Column(c).Width(editorWidth).MinHeight(0).Children(func() {
-			panel := ui.Column(c.Key(selected)).Fill().Gap(10)
-			if a.Save == nil {
-				selected = 0
-			}
-			if selected < 0 {
-				return
-			}
-			p := fmt.Sprintf("Items[%d].", selected)
-			panel.Children(func() {
-				a.scrollingSection(c, "Item Editor", func() {
-					if a.Save != nil {
-						ui.Textf(c, "%s %d", a.T("Slot"), selected)
-					} else {
-						ui.Text(c, a.T("Slot"))
-					}
-					a.choice(c, "Item", a.DB.Catalog["items"], int(a.number(p+"Id")), func(id int) {
-						ops := []save.Operation{{"op": "set", "path": p + "Id", "value": id}}
-						if id == -1 {
-							ops = append(ops, save.Operation{"op": "set", "path": p + "Durability", "value": 0}, save.Operation{"op": "set", "path": p + "Amount", "value": 0})
-						}
-						a.applyBatch(ops...)
-					})
-					a.input(c, "Durability", p+"Durability", 0, 4294967295)
-					a.input(c, "Amount", p+"Amount", 0, 4294967295)
+		a.card(c, a.T("Item List")).Width(listWidth + editorWidth + 10).MinHeight(0).Children(func() {
+			ui.Row(c).Fill().Gap(editorAppearance.CardPadding).AlignItems(ui.Stretch).Children(func() {
+				selected := -1
+				ui.Column(c).Width(listWidth - 2*editorAppearance.CardPadding).MinHeight(0).Children(func() {
+					selected = a.selection(c, "items-items", "Item List", rows, nil)
 				})
-				a.scrollingSection(c, "Item Tools", func() {
-					if ui.Button(c, a.T("Sort Items")).Clicked() {
-						a.flushInput()
-						a.apply(save.Operation{"op": "sortItems"})
-						a.table("items-items").Selected = 0
-					}
-					a.action(c, "Add Essential Items", save.Operation{"op": "addEssentialItems"})
-					mode := a.tab("durability-mode")
-					a.selectIndex(c, "Set Durability", *mode, []string{"Normal maximum", "100 (infinite)", "Weapons 100, other maximum"}, func(i int) { *mode = i })
-					if ui.Button(c, a.T("Apply to Inventory")).Clicked() {
-						a.flushInput()
-						a.apply(save.Operation{"op": "inventoryDurability", "mode": []string{"normal", "unlimited", "weapons-unlimited"}[*mode]})
-					}
+				ui.Scroll(c).Grow(1).Basis(0).MinWidth(0).MinHeight(0).Children(func() {
+					ui.Column(c).Gap(editorAppearance.CardPadding).Children(func() {
+						if a.Save == nil {
+							selected = 0
+						}
+						if selected >= 0 {
+							a.itemEditor(c, selected)
+						}
+						a.itemTools(c)
+					})
 				})
 			})
 		})
@@ -71,6 +46,45 @@ func (a *App) itemsPage(c *ui.Context) {
 				title = "Gift Items"
 			}
 			a.card(c.Key(kind), a.T(title)).Grow(1).MinHeight(0).Children(func() { a.smallInventory(c, kind) })
+		}
+	})
+}
+
+func (a *App) itemEditor(c *ui.Context, selected int) {
+	p := fmt.Sprintf("Items[%d].", selected)
+	ui.Column(c.Key(selected)).Gap(editorAppearance.ControlGap).Role(ui.RoleGroup).Label(a.T("Item Editor")).Children(func() {
+		ui.Text(c, a.T("Item Editor")).Bold()
+		if a.Save != nil {
+			ui.Textf(c, "%s %d", a.T("Slot"), selected)
+		} else {
+			ui.Text(c, a.T("Slot"))
+		}
+		a.choice(c, "Item", a.DB.Catalog["items"], int(a.number(p+"Id")), func(id int) {
+			ops := []save.Operation{{"op": "set", "path": p + "Id", "value": id}}
+			if id == -1 {
+				ops = append(ops, save.Operation{"op": "set", "path": p + "Durability", "value": 0}, save.Operation{"op": "set", "path": p + "Amount", "value": 0})
+			}
+			a.applyBatch(ops...)
+		})
+		a.input(c, "Durability", p+"Durability", 0, 4294967295)
+		a.input(c, "Amount", p+"Amount", 0, 4294967295)
+	})
+}
+
+func (a *App) itemTools(c *ui.Context) {
+	ui.Column(c).Gap(editorAppearance.ControlGap).Role(ui.RoleGroup).Label(a.T("Item Tools")).Children(func() {
+		ui.Text(c, a.T("Item Tools")).Bold()
+		if ui.Button(c, a.T("Sort Items")).Clicked() {
+			a.flushInput()
+			a.apply(save.Operation{"op": "sortItems"})
+			a.table("items-items").Selected = 0
+		}
+		a.action(c, "Add Essential Items", save.Operation{"op": "addEssentialItems"})
+		mode := a.tab("durability-mode")
+		a.selectIndex(c, "Set Durability", *mode, []string{"Normal maximum", "100 (infinite)", "Weapons 100, other maximum"}, func(i int) { *mode = i })
+		if ui.Button(c, a.T("Apply to Inventory")).Clicked() {
+			a.flushInput()
+			a.apply(save.Operation{"op": "inventoryDurability", "mode": []string{"normal", "unlimited", "weapons-unlimited"}[*mode]})
 		}
 	})
 }

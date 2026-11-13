@@ -304,8 +304,11 @@ func TestInventoryCardsAndListEdges(t *testing.T) {
 			}
 		}
 		editor, tools := cards["Item Editor"].Bounds, cards["Item Tools"].Bounds
-		if math.Abs(float64(editor.Y-left.Y)) > 0.5 || math.Abs(float64(tools.Y+tools.H-left.Y-left.H)) > 0.5 || math.Abs(float64(editor.H-tools.H)) > 0.5 {
-			t.Error("the stacked editor cards do not fill the inventory column equally")
+		if !containsRect(left, editor) || !containsRect(left, tools) {
+			t.Error("item editor and tools must share the inventory card")
+		}
+		if math.Abs(float64(editor.X-tools.X)) > 0.5 {
+			t.Error("item editor and tools do not align")
 		}
 		lists := 0
 		for _, list := range tt.AccessAll() {

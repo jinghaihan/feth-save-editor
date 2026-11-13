@@ -67,8 +67,8 @@ func TestUnloadedPageGeometry(t *testing.T) {
 								}
 								editor, _ := tt.AccessByRole(ui.RoleGroup, a.T("Item Editor"))
 								tools, _ := tt.AccessByRole(ui.RoleGroup, a.T("Item Tools"))
-								if editor.Bounds.Y != list.Bounds.Y || tools.Bounds.Y+tools.Bounds.H != list.Bounds.Y+list.Bounds.H || math.Abs(float64(editor.Bounds.H-tools.Bounds.H)) > 0.5 {
-									t.Error("unloaded inventory editor column does not fill the page equally")
+								if !containsRect(list.Bounds, editor.Bounds) || !containsRect(list.Bounds, tools.Bounds) {
+									t.Error("unloaded item editor and tools must share the inventory card")
 								}
 							}
 							for _, area := range tt.AccessAll() {
