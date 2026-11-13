@@ -41,6 +41,7 @@ For scripted edits, see the [CLI guide](CLI.md).
 
 - [imouto1994/fe3h-editor](https://github.com/imouto1994/fe3h-editor): the original project this editor was derived from.
 - [egoist/MyGo](https://github.com/egoist/mygo): the desktop UI framework.
+- [SukiUI](https://github.com/kikipoulet/SukiUI): the original C# editor's visual reference for colors, spacing, and card borders.
 - [Falo's v1.2.0 Beta1 release](https://gbatemp.net/threads/fire-emblem-three-houses-general-hacking.544144/post-8948080): v1.2.0 save support and game data.
 
 ## License
