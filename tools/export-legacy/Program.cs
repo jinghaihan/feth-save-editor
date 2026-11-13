@@ -15,7 +15,7 @@ void Write(string name, object value) {
     using var gzip = new GZipStream(file, CompressionLevel.SmallestSize);
     JsonSerializer.Serialize(gzip, value, json);
 }
-Write("ui-zh_hans", JsonSerializer.Deserialize<Dictionary<string,string>>(File.ReadAllText("gui/Localization/zh_hans.json"))!);
+Write("ui-zh_hans", JsonSerializer.Deserialize<Dictionary<string,string>>(File.ReadAllText("migration/legacy/ui-localization/zh_hans.json"))!);
 var schemas = new Dictionary<string, object>();
 void Schema(Type type) {
     if (schemas.ContainsKey(type.Name)) return;

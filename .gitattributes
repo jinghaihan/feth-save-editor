@@ -1,0 +1,2 @@
+migration/legacy/** linguist-vendored=true
+internal/catalog/data/*.gz binary

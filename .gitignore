@@ -13,3 +13,7 @@ dist/
 /tools/export-legacy/bin/
 /tools/export-legacy/obj/
 /build/
+
+/migration/legacy/**/bin/
+/migration/legacy/**/obj/
+__pycache__/
