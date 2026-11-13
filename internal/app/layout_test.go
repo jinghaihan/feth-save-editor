@@ -65,6 +65,27 @@ func assertControlsFit(t *testing.T, tt *ui.Tester, width int) {
 	t.Helper()
 	var controls []ui.AccessInfo
 	all := tt.AccessAll()
+	for _, list := range all {
+		if list.Role != ui.RoleList || list.Offscreen {
+			continue
+		}
+		for _, node := range all {
+			if node.Offscreen {
+				continue
+			}
+			if node.Role == ui.RoleListItem && containsRect(list.Bounds, node.Bounds) {
+				if math.Abs(float64(node.Bounds.X-list.Bounds.X)) > 0.5 || math.Abs(float64(node.Bounds.W-list.Bounds.W)) > 0.5 {
+					t.Errorf("list row is indented from its column: %q", node.Name)
+				}
+			}
+			gap := list.Bounds.Y - node.Bounds.Y - node.Bounds.H
+			if node.Role == ui.RoleTextField && gap >= 0 && gap <= 16 && math.Abs(float64(node.Bounds.X-list.Bounds.X)) < 16 {
+				if math.Abs(float64(node.Bounds.X-list.Bounds.X)) > 0.5 || math.Abs(float64(node.Bounds.W-list.Bounds.W)) > 0.5 {
+					t.Errorf("search field and list edges differ: %q", node.Name)
+				}
+			}
+		}
+	}
 	for _, n := range all {
 		if !visibleControl(n) && (n.Role != ui.RoleText || n.Offscreen || n.Bounds.W <= 0 || n.Bounds.H <= 0) {
 			continue
@@ -253,6 +274,60 @@ func TestLegacyAppearanceLayers(t *testing.T) {
 		}
 		if got := tt.Image().RGBAAt(int(input.Bounds.X+input.Bounds.W-12), int(input.Bounds.Y+8)); got.R != 249 || got.G != 249 || got.B != 249 {
 			t.Fatalf("control background changed: %v", got)
+		}
+	}
+}
+
+func TestInventoryCardsAndListEdges(t *testing.T) {
+	for _, size := range [][2]int{{1120, 780}, {860, 600}} {
+		a := fixture(t)
+		a.Page = "Items"
+		tt := ui.NewTester(a.View, size[0], size[1])
+		cards := map[string]ui.AccessInfo{}
+		for _, name := range []string{"Item List", "Item Editor", "Item Tools", "Misc Items", "Gift Items"} {
+			node, ok := tt.AccessByRole(ui.RoleGroup, name)
+			if !ok {
+				t.Fatalf("missing inventory card: %s", name)
+			}
+			cards[name] = node
+		}
+		left := cards["Item List"].Bounds
+		for _, name := range []string{"Misc Items", "Gift Items"} {
+			r := cards[name].Bounds
+			if math.Abs(float64(r.Y-left.Y)) > 0.5 || math.Abs(float64(r.H-left.H)) > 0.5 {
+				t.Errorf("%s does not align with the inventory list", name)
+			}
+		}
+		editor, tools := cards["Item Editor"].Bounds, cards["Item Tools"].Bounds
+		if math.Abs(float64(editor.Y-left.Y)) > 0.5 || math.Abs(float64(tools.Y+tools.H-left.Y-left.H)) > 0.5 || math.Abs(float64(editor.H-tools.H)) > 0.5 {
+			t.Error("the stacked editor cards do not fill the inventory column equally")
+		}
+		lists := 0
+		for _, list := range tt.AccessAll() {
+			if list.Role != ui.RoleList || list.Offscreen {
+				continue
+			}
+			lists++
+			r := list.Bounds
+			pixel := tt.Image().RGBAAt(int(r.X+1), int(r.Y+r.H-1))
+			if pixel.R != 242 || pixel.G != 242 || pixel.B != 242 {
+				t.Errorf("list has a separate background: %v", pixel)
+			}
+			rows := 0
+			for _, row := range tt.AccessAll() {
+				if row.Role == ui.RoleListItem && !row.Offscreen && containsRect(r, row.Bounds) {
+					rows++
+					if math.Abs(float64(row.Bounds.X-r.X)) > 0.5 || math.Abs(float64(row.Bounds.W-r.W)) > 0.5 {
+						t.Errorf("list row does not align with the list edge: %+v / %+v", row.Bounds, r)
+					}
+				}
+			}
+			if rows == 0 {
+				t.Fatal("list has no visible rows to check")
+			}
+		}
+		if lists != 3 {
+			t.Fatalf("expected all three inventory lists, got %d", lists)
 		}
 	}
 }

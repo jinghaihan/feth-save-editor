@@ -58,6 +58,15 @@ func (a *App) section(c *ui.Context, title string, contents func()) {
 	})
 }
 
+func (a *App) scrollingSection(c *ui.Context, title string, contents func()) {
+	a.card(c, a.T(title)).Grow(1).Basis(0).MinHeight(0).Children(func() {
+		ui.Text(c, a.T(title)).Bold()
+		ui.Scroll(c).Grow(1).MinHeight(0).Children(func() {
+			ui.Column(c).Gap(editorAppearance.ControlGap).Children(contents)
+		})
+	})
+}
+
 func (a *App) groupBox(c *ui.Context, title string) ui.Element {
 	return ui.Column(c).Padding(editorAppearance.CardPadding).Gap(editorAppearance.SectionGap).MinWidth(0).Role(ui.RoleGroup).Label(a.T(title))
 }

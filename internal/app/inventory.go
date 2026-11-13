@@ -12,7 +12,7 @@ func (a *App) itemsPage(c *ui.Context) {
 	width, _ := c.Size()
 	scale := min(float32(1), width/1120)
 	listWidth, editorWidth := max(float32(190), 250*scale), max(float32(168), 220*scale)
-	ui.Row(c).Grow(1).Basis(0).MinHeight(0).Gap(editorAppearance.SectionGap).AlignItems(ui.Stretch).Children(func() {
+	ui.Row(c).Grow(1).Basis(0).MinHeight(0).Gap(10).AlignItems(ui.Stretch).Children(func() {
 		rows := make([]row, 400)
 		for i := range rows {
 			p := fmt.Sprintf("Items[%d].", i)
@@ -20,15 +20,15 @@ func (a *App) itemsPage(c *ui.Context) {
 		}
 		selected := -1
 		a.card(c, a.T("Item List")).Width(listWidth).MinHeight(0).Children(func() { selected = a.selection(c, "items-items", "Item List", rows, nil) })
-		ui.Scroll(c).Width(editorWidth).MinHeight(0).Children(func() {
-			panel := ui.Column(c.Key(selected)).Gap(editorAppearance.SectionGap)
+		ui.Column(c).Width(editorWidth).MinHeight(0).Children(func() {
+			panel := ui.Column(c.Key(selected)).Fill().Gap(10)
 			if selected < 0 {
 				return
 			}
 			p := fmt.Sprintf("Items[%d].", selected)
 			draft := a.draft(panel, p+"Id", p+"Durability", p+"Amount")
 			panel.Children(func() {
-				a.section(c, "Item Editor", func() {
+				a.scrollingSection(c, "Item Editor", func() {
 					ui.Textf(c, "%s %d", a.T("Slot"), selected)
 					draft.choice(a, c, "Item", p+"Id", a.DB.Catalog["items"])
 					draft.number(a, c, "Durability", p+"Durability")
@@ -46,7 +46,7 @@ func (a *App) itemsPage(c *ui.Context) {
 						}
 					}
 				})
-				a.section(c, "Item Tools", func() {
+				a.scrollingSection(c, "Item Tools", func() {
 					if ui.Button(c, a.T("Sort Items")).Clicked() {
 						a.apply(save.Operation{"op": "sortItems"})
 						a.table("items-items").Selected = 0

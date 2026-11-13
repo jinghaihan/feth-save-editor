@@ -47,7 +47,8 @@ var listTheme = func() *ui.Theme {
 func themedList(c *ui.Context, state *ui.ListState, count int, row func(int)) ui.Element {
 	var list ui.Element
 	ui.Themed(c, listTheme).Grow(1).Basis(0).MinHeight(0).Children(func() {
-		list = ui.List(c, state, count, row).Grow(1).MinHeight(0)
+		list = ui.List(c, state, count, row).Grow(1).MinHeight(0).
+			Background(editorAppearance.Card).Gap(2)
 	})
 	return list
 }
