@@ -301,7 +301,7 @@ func (a *App) systemPage(c *ui.Context) {
 				}
 			}
 			state.List.Key = func(i int) any { return ids[i] }
-			themedList(c, &state.List, len(ids), func(row int) {
+			ui.List(c, &state.List, len(ids), func(row int) {
 				i := ids[row]
 				on, _ := a.System.Flag(i)
 				name := fmt.Sprintf("[%04d] %s", i, a.DB.Name("system-flags", i))
@@ -311,7 +311,7 @@ func (a *App) systemPage(c *ui.Context) {
 						a.Status = err.Error()
 					}
 				}
-			}).Grow(1).MinHeight(0)
+			}).Grow(1).MinHeight(0).Background(editorAppearance.Card).Gap(editorAppearance.ControlGap)
 		})
 	})
 }

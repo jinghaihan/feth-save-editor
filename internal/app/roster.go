@@ -131,11 +131,23 @@ func (a *App) rosterPage(c *ui.Context) {
 						a.flagGrid(c, p+"ClassUnlockFlags", 64, func(i int) string { return a.DB.Name("unit-classes", i) })
 					})
 				case 5:
-					a.action(c, "Unlock All", save.Operation{"op": "unlockAll", "slot": slot, "kind": "abilities"})
-					a.flagGrid(c, p+"Abilities", 240, func(i int) string { return a.DB.Name("abilities", i) })
+					a.groupBox(c, "Abilities").Children(func() {
+						ui.Row(c).AlignItems(ui.Center).Children(func() {
+							ui.Text(c, a.T("Abilities")).Bold().Grow(1)
+							a.action(c, "Unlock All", save.Operation{"op": "unlockAll", "slot": slot, "kind": "abilities"})
+						})
+						a.flagGrid(c, p+"Abilities", 240, func(i int) string { return a.DB.Name("abilities", i) })
+					})
 				case 6:
-					a.action(c, "Unlock All", save.Operation{"op": "unlockAll", "slot": slot, "kind": "combat-arts"})
-					a.flagRows(c, p+"CombatArts", 80, func(i int) string { return a.DB.Name("arts", i) })
+					a.groupBox(c, "Combat Arts").Children(func() {
+						ui.Row(c).AlignItems(ui.Center).Children(func() {
+							ui.Text(c, a.T("Combat Arts")).Bold().Grow(1)
+							a.action(c, "Unlock All", save.Operation{"op": "unlockAll", "slot": slot, "kind": "combat-arts"})
+						})
+						ui.Column(c).Gap(4).Children(func() {
+							a.flagRows(c, p+"CombatArts", 80, func(i int) string { return a.DB.Name("arts", i) })
+						})
+					})
 				}
 			})
 		})
@@ -157,7 +169,7 @@ func (a *App) characterClasses(c *ui.Context, slot int) {
 	ui.Row(c).Grow(1).Basis(0).MinHeight(0).Gap(editorAppearance.SectionGap).AlignItems(ui.Stretch).Children(func() {
 		id := -1
 		a.groupBox(c, "Class Experience").Grow(1).MinHeight(0).Children(func() { id = a.selection(c, key, "Class Experience", rows, nil) })
-		panel := ui.Column(c.Key(id)).Width(200).Gap(editorAppearance.ControlGap)
+		panel := ui.Column(c.Key(id)).Width(240).Gap(editorAppearance.ControlGap)
 		if id < 0 {
 			return
 		}
@@ -176,8 +188,8 @@ func (a *App) characterClasses(c *ui.Context, slot int) {
 						a.applyBatch(save.Operation{"op": "set", "path": expPath, "value": exp}, save.Operation{"op": "set", "path": levelPath, "value": level})
 					}
 				}
+				a.action(c, "Max All Class Experience", save.Operation{"op": "maxClassExp", "slot": slot})
 			})
-			a.action(c, "Max All Class Experience", save.Operation{"op": "maxClassExp", "slot": slot})
 		})
 	})
 }

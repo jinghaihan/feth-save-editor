@@ -331,3 +331,71 @@ func TestInventoryCardsAndListEdges(t *testing.T) {
 		}
 	}
 }
+
+func TestRosterActionAlignment(t *testing.T) {
+	for _, size := range [][2]int{{1120, 780}, {860, 600}} {
+		a := fixture(t)
+		a.Page = "Roster"
+		*a.tab("roster") = 3
+		tt := ui.NewTester(a.View, size[0], size[1])
+		set, ok := tt.AccessByRole(ui.RoleButton, "Set Class Values")
+		if !ok {
+			t.Fatal("missing class action")
+		}
+		maxAll, ok := tt.AccessByRole(ui.RoleButton, "Max All Class Experience")
+		if !ok {
+			t.Fatal("missing max action")
+		}
+		if set.Bounds.X != maxAll.Bounds.X || set.Bounds.W != maxAll.Bounds.W {
+			t.Fatal("class actions have different column edges")
+		}
+		for _, tab := range []int{5, 6} {
+			*a.tab("roster") = tab
+			tt.Frame()
+			title := "Abilities"
+			if tab == 6 {
+				title = "Combat Arts"
+			}
+			heading, ok := tt.AccessByRole(ui.RoleText, title)
+			if !ok {
+				t.Fatal("missing unlock heading")
+			}
+			button, ok := tt.AccessByRole(ui.RoleButton, "Unlock All")
+			if !ok {
+				t.Fatal("missing unlock action")
+			}
+			alignedCenters(t, heading, button)
+			if button.Bounds.W > 120 || button.Bounds.X < heading.Bounds.X+heading.Bounds.W {
+				t.Fatal("unlock action is not a compact trailing button")
+			}
+		}
+	}
+}
+
+func TestSystemCheckboxUsesControlAccent(t *testing.T) {
+	a := fixture(t)
+	a.Page = "System"
+	if _, err := a.System.Apply([]save.Operation{{"op": "setSystemFlag", "index": 0, "value": true}}); err != nil {
+		t.Fatal(err)
+	}
+	tt := ui.NewTester(a.View, 1120, 780)
+	for _, node := range tt.AccessAll() {
+		if node.Role != ui.RoleCheckBox || node.Offscreen {
+			continue
+		}
+		pixels := 0
+		for y := int(node.Bounds.Y); y < int(node.Bounds.Y+node.Bounds.H); y++ {
+			for x := int(node.Bounds.X); x < int(node.Bounds.X+16); x++ {
+				p := tt.Image().RGBAAt(x, y)
+				if p.R == 0 && p.G == 61 && p.B == 255 {
+					pixels++
+				}
+			}
+		}
+		if pixels < 10 {
+			t.Fatal("checked system flag does not use the standard control accent")
+		}
+		return
+	}
+	t.Fatal("system checkbox missing")
+}
