@@ -255,17 +255,16 @@ func (a *App) databasePage(c *ui.Context) {
 			ui.Column(c).Width(320).MinHeight(0).Children(func() {
 				id = a.selection(c, "database-"+kind, []string{"Character Database", "Class Database", "Item Database"}[*tab], rows, nil)
 			})
-			ui.Scroll(c).Grow(1).MinWidth(0).MinHeight(0).Children(func() {
-				if id < 0 {
-					return
-				}
+			if id >= 0 {
 				detail, err := a.DB.Detail(kind, id)
 				if err != nil {
 					ui.Text(c, err.Error())
 					return
 				}
-				ui.Text(c, strings.ReplaceAll(detail.Details, "\r\n", "\n"))
-			})
+				text := strings.ReplaceAll(detail.Details, "\r\n", "\n")
+				ui.TextArea(c.Key(kind), &text).ReadOnly(true).Grow(1).MinWidth(0).MinHeight(0).Label(a.T("Details"))
+			}
+
 		})
 	})
 }
@@ -311,7 +310,7 @@ func (a *App) systemPage(c *ui.Context) {
 						a.Status = err.Error()
 					}
 				}
-			}).Grow(1).MinHeight(0).Background(editorAppearance.Card).Gap(editorAppearance.ControlGap)
+			}).Grow(1).MinHeight(0).Background(cardColor(c)).Gap(editorAppearance.ControlGap)
 		})
 	})
 }

@@ -11,9 +11,9 @@ import (
 )
 
 func (a *App) View(c *ui.Context) {
-	c.SetTheme(editorTheme)
+	c.SetTheme(a.currentTheme())
 	c = c.Key(a.revision)
-	root := ui.Column(c).Fill().Background(editorAppearance.Window)
+	root := ui.Column(c).Fill().Background(c.Theme().Background)
 	root.Children(func() {
 		selected := 0
 		labels := make([]string, len(pages))
@@ -30,9 +30,9 @@ func (a *App) View(c *ui.Context) {
 			}
 		})
 		ui.Row(c).Grow(1).Basis(0).MinHeight(0).AlignItems(ui.Stretch).Children(func() {
-			ui.Column(c.Key(a.Page)).Grow(1).MinWidth(0).MinHeight(0).Padding(16).Gap(editorAppearance.SectionGap).Children(func() {
-				if a.Save == nil && a.Page != "Database" && a.Page != "System" {
-					ui.Text(c, a.T("Open a save to begin."))
+			ui.Column(c.Key(a.Page)).Grow(1).MinWidth(0).MinHeight(0).Padding(16).Gap(editorAppearance.SectionGap).Disabled(a.Save == nil && a.Page != "Database").Children(func() {
+				if a.Save == nil && a.Page != "Database" {
+					a.emptyPage(c)
 					return
 				}
 				switch a.Page {

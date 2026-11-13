@@ -9,10 +9,12 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/i18n"
 	_ "github.com/egoist/mygo/locales/ja"
 	_ "github.com/egoist/mygo/locales/zh-Hans"
 	_ "github.com/egoist/mygo/locales/zh-Hant"
 	"github.com/egoist/mygo/ui"
+	"github.com/jinghaihan/feth-save-editor/assets"
 	"github.com/jinghaihan/feth-save-editor/internal/catalog"
 	"github.com/jinghaihan/feth-save-editor/internal/save"
 )
@@ -44,6 +46,8 @@ type App struct {
 	tabs                   map[string]*int
 	zh                     map[string]string
 	preferencesPath        string
+	languageChosen         bool
+	dark                   bool
 	revision               int
 	confirm                bool
 	confirmLabel           string
@@ -73,19 +77,42 @@ func (a *App) T(text string) string {
 	}
 	return text
 }
-func (a *App) SetLanguage(code string) error {
+
+var localeTags = map[string]string{"en_u": "en-US", "en_e": "en-GB", "zh_hans": "zh-Hans", "zh_hant": "zh-Hant", "jp": "ja", "kr": "ko", "de": "de", "fr_e": "fr", "fr_u": "fr-CA", "es_e": "es", "es_u": "es-MX", "it": "it"}
+
+func (a *App) SetLanguage(code string) error { return a.setLanguage(code, true) }
+func (a *App) setLanguage(code string, remember bool) error {
 	db, err := catalog.Load(code)
 	if err != nil {
 		return err
 	}
 	a.Language, a.DB = code, db
-	tags := map[string]string{"en_u": "en-US", "en_e": "en-GB", "zh_hans": "zh-Hans", "zh_hant": "zh-Hant", "jp": "ja", "kr": "ko", "de": "de", "fr_e": "fr", "fr_u": "fr-CA", "es_e": "es", "es_u": "es-MX", "it": "it"}
-	if a.win != nil {
-		mygo.App.SetLocale(tags[code])
-		a.menu()
+	if remember {
+		a.languageChosen = true
+		a.storePreferences()
 	}
-	a.storePreferences()
+	if a.win != nil {
+		a.refreshLocale()
+	}
 	return nil
+}
+func (a *App) refreshLocale() {
+	mygo.App.SetLocale(localeTags[a.Language])
+	a.menu()
+	a.win.Invalidate()
+}
+func systemLanguage(preferred []string) string {
+	tags := make([]string, len(languageCodes))
+	for i, code := range languageCodes {
+		tags[i] = localeTags[code]
+	}
+	matched := i18n.Match(preferred, tags)
+	for code, tag := range localeTags {
+		if strings.EqualFold(tag, matched) {
+			return code
+		}
+	}
+	return "en_u"
 }
 func (a *App) table(key string) *tableState {
 	if t := a.tables[key]; t != nil {
@@ -123,32 +150,48 @@ func (a *App) apply(op save.Operation) {
 func (a *App) Set(path string, value int64) {
 	a.apply(save.Operation{"op": "set", "path": path, "value": value})
 }
-func (a *App) Load(path string) error {
+
+type loadedFiles struct {
+	save       *save.Buffer
+	system     *save.System
+	systemPath string
+}
+
+func loadFiles(path string) (loadedFiles, error) {
 	s, err := save.Open(path)
+	if err != nil {
+		return loadedFiles{}, err
+	}
+	files := loadedFiles{save: s, systemPath: filepath.Join(filepath.Dir(path), "system")}
+	if _, err := os.Stat(files.systemPath); err == nil {
+		files.system, err = save.OpenSystem(files.systemPath)
+		if err != nil {
+			return loadedFiles{}, err
+		}
+	}
+	return files, nil
+}
+func (a *App) Load(path string) error {
+	files, err := loadFiles(path)
 	if err != nil {
 		return err
 	}
-	systemPath := filepath.Join(filepath.Dir(path), "system")
-	if a.System != nil && !bytes.Equal(a.systemBaseline, a.System.FinishedBytes()) && !strings.EqualFold(a.SystemPath, systemPath) {
+	return a.installFiles(path, files)
+}
+func (a *App) installFiles(path string, files loadedFiles) error {
+	if a.System != nil && !bytes.Equal(a.systemBaseline, a.System.FinishedBytes()) && !strings.EqualFold(a.SystemPath, files.systemPath) {
 		return fmt.Errorf("save the edited system copy before loading another system save")
 	}
-	var system *save.System
-	if _, err := os.Stat(systemPath); err == nil {
-		system, err = save.OpenSystem(systemPath)
-		if err != nil {
-			return err
-		}
-	}
-	a.Save, a.Path, a.System, a.SystemPath = s, path, system, systemPath
+	a.Save, a.Path, a.System, a.SystemPath = files.save, path, files.system, files.systemPath
 	a.pendingInput = nil
 	a.systemBaseline = nil
-	if system != nil {
-		a.systemBaseline = system.FinishedBytes()
+	if files.system != nil {
+		a.systemBaseline = files.system.FinishedBytes()
 	}
 	a.tables = map[string]*tableState{}
 	a.revision++
 	a.Status = ""
-	if !s.ChecksumValid {
+	if !files.save.ChecksumValid {
 		a.Status = a.T("Warning: save checksum does not match. Saving an edited copy will repair it.")
 	}
 	return nil
@@ -162,8 +205,9 @@ func (a *App) post(fn func()) {
 }
 func (a *App) open() {
 	a.flushInput()
+	title := a.T("Open Save...")
 	go func() {
-		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: a.win, Title: a.T("Open Save...")})
+		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: a.win, Title: title})
 		if err != nil {
 			a.post(func() { a.Status = err.Error() })
 			return
@@ -171,8 +215,13 @@ func (a *App) open() {
 		if len(paths) == 0 {
 			return
 		}
+		files, err := loadFiles(paths[0])
 		a.post(func() {
-			if err := a.Load(paths[0]); err != nil {
+			if err != nil {
+				a.Status = err.Error()
+				return
+			}
+			if err := a.installFiles(paths[0], files); err != nil {
 				a.Status = err.Error()
 			}
 		})
@@ -252,12 +301,15 @@ func (a *App) loadPreferences() {
 	}
 	a.preferencesPath = filepath.Join(dir, "FethEditor", "language.txt")
 	if forced := strings.TrimSpace(os.Getenv("FETH_EDITOR_LANGUAGE")); forced != "" {
-		if a.SetLanguage(canonicalLanguage(forced)) == nil {
+		if a.setLanguage(canonicalLanguage(forced), false) == nil {
+			a.languageChosen = true
 			return
 		}
 	}
 	if b, err := os.ReadFile(a.preferencesPath); err == nil {
-		a.SetLanguage(canonicalLanguage(strings.TrimSpace(string(b))))
+		if a.setLanguage(canonicalLanguage(strings.TrimSpace(string(b))), false) == nil {
+			a.languageChosen = true
+		}
 	}
 }
 func (a *App) storePreferences() {
@@ -271,18 +323,7 @@ func (a *App) storePreferences() {
 		}
 	}
 }
-func canonicalLanguage(code string) string {
-	code = strings.ToLower(code)
-	switch code {
-	case "en_e":
-		return "en_u"
-	case "fr_e":
-		return "fr_u"
-	case "es_e":
-		return "es_u"
-	}
-	return code
-}
+func canonicalLanguage(code string) string { return strings.ToLower(strings.TrimSpace(code)) }
 func (a *App) menu() {
 	mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
 		{Role: mygo.RoleAppMenu},
@@ -301,7 +342,13 @@ func (a *App) menu() {
 func (a *App) languageMenu() []*mygo.MenuItem {
 	items := make([]*mygo.MenuItem, len(languageCodes))
 	for i, code := range languageCodes {
-		items[i] = &mygo.MenuItem{Label: languageNames[i], Click: func(*mygo.MenuItem, *mygo.Window) { a.SetLanguage(code) }}
+		items[i] = &mygo.MenuItem{Label: languageNames[i], Click: func(*mygo.MenuItem, *mygo.Window) {
+			a.post(func() {
+				if err := a.SetLanguage(code); err != nil {
+					a.Status = err.Error()
+				}
+			})
+		}}
 	}
 	return items
 }
@@ -314,9 +361,17 @@ func Run(path string) error {
 		}
 	}
 	mygo.App.WhenReady(func() {
+		if !a.languageChosen {
+			a.setLanguage(systemLanguage(mygo.App.PreferredLanguages()), false)
+		}
+		mygo.Theme.SetSource(mygo.ThemeSystem)
+		a.dark = mygo.Theme.IsDark()
 		a.win = mygo.NewWindow(mygo.WindowOptions{Title: "FETH Save Editor", Width: 1120, Height: 780, MinWidth: 860, MinHeight: 600, StateKey: "main", Content: ui.View(a.View)})
-		a.SetLanguage(a.Language)
-		a.menu()
+		if err := a.win.SetIcon(assets.WindowIcon); err != nil {
+			a.Status = err.Error()
+		}
+		a.refreshLocale()
+		mygo.Theme.OnUpdated(func() { a.post(func() { a.dark = mygo.Theme.IsDark() }) })
 	})
 	return mygo.App.Run()
 }

@@ -82,7 +82,7 @@ func (a *App) group(c *ui.Context, title string, contents func()) {
 func (a *App) card(c *ui.Context, label string) ui.Element {
 	t := c.Theme()
 	return ui.Column(c).Padding(editorAppearance.CardPadding).Gap(editorAppearance.SectionGap).Radius(editorAppearance.CardRadius).
-		Background(editorAppearance.Card).Border(1, t.Border).MinWidth(0).Role(ui.RoleGroup).Label(label)
+		Background(cardColor(c)).Border(1, t.Border).MinWidth(0).Role(ui.RoleGroup).Label(label)
 }
 
 // selection keeps each old list's own search, selection and stable source ID.

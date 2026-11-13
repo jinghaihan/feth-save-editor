@@ -150,8 +150,7 @@ func saveLayoutImage(t *testing.T, tt *ui.Tester, parts ...string) {
 func TestEveryPageLayout(t *testing.T) {
 	for _, language := range languageCodes {
 		for _, dark := range []bool{false, true} {
-			// Exercise both system appearances. The editor itself stays light,
-			// matching the C# application's explicit theme preference.
+			// Exercise the two appearances supplied by the system.
 			if dark && language != "en_u" && language != "zh_hans" {
 				continue
 			}
@@ -162,6 +161,7 @@ func TestEveryPageLayout(t *testing.T) {
 				}
 				t.Run(fmt.Sprintf("%s/%s/%dx%d", language, theme, size[0], size[1]), func(t *testing.T) {
 					a := layoutFixture(t)
+					a.dark = dark
 					a.SetLanguage(language)
 					tt := ui.NewTesterWith(a.View, size[0], size[1], ui.TesterOptions{Dark: dark})
 					for _, view := range layoutViews() {
